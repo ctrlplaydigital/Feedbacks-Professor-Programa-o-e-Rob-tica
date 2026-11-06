@@ -77,7 +77,7 @@ async function teacher(id) {
   const tur = D.turmas.filter(t => L && t.mes === L.mes), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
   const card = (n, k, lg) => `<div class="card"><div class="mu">${n}</div><div class="big">${L ? L[k] + (k === 'churn' ? '%' : '') : '–'}</div>${L ? delta(+L[k], P && +P[k], lg) : ''}</div>`;
   app.innerHTML = `<button class="g" onclick="run(home)">← Professores</button><h1>${esc(D.teacher.nome)}</h1>
-  <p><button onclick="form()">Novo feedback do mês</button></p>
+  <p><button onclick="novoFeedback()">Novo feedback do mês</button></p>
   ${L ? `<div class="mu">Último feedback: ${MES(L.mes)} (comparado a ${P ? MES(P.mes) : 'nenhum mês anterior'})</div>` : '<p class="mu">Sem feedbacks ainda.</p>'}
   <div class="row">${card('Churn','churn',1)}${card('Turmas','turmas')}${card('Alunos','alunos')}<div class="card"><div class="mu">Pontos melhorados</div><div class="big">${ok.length}/${D.pontos.length}</div><span class="mu">${pend.length} pendentes</span></div></div>
   <div class="row">${chart('Churn (%)', fs.map(f => +f.churn), fs.map(f => MES(f.mes)))}${chart('Turmas', fs.map(f => +f.turmas), fs.map(f => MES(f.mes)))}${chart('Alunos', fs.map(f => +f.alunos), fs.map(f => MES(f.mes)))}</div>
@@ -90,7 +90,7 @@ async function teacher(id) {
 }
 
 let TUR = [];
-function form() {
+function novoFeedback() {
   const pend = D.pontos.filter(p => p.status === 'pendente'), now = new Date().toISOString().slice(0, 7); TUR = [];
   app.innerHTML = `<button class="g" onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button><h1>Novo feedback · ${esc(D.teacher.nome)}</h1>
   <div class="card"><div class="row"><div><label>Mês</label><input id="mes" type="month" value="${now}"></div><div><label>Churn (%)</label><input id="ch" type="number" step="0.1"></div></div>
