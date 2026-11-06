@@ -19,7 +19,7 @@ td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;font-s
 </style></head><body><main id="app"></main><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbywCyop8bPIhMH111iZpuNv6S0Ilm96xkMPfekku3OvpxXLQJX30KoB80-uFTjtqr2m/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxIFJT_HAOXxikHGYuJY0f4rW2fZhyHbM-LwkoqkAiw3c7exh6DVY4Ka5j4GiazQoCv/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function call(action, data) {
@@ -47,7 +47,7 @@ function parseHTML(html) {
     if (!m) return;
     const q = s => ((li.querySelector(s) || {}).textContent || '').trim();
     out.push({ turmaId: m[1], modulo: m[2], mesInicio: m[3], dia: heads[i] || m[4], horario: m[5], professor: m[6],
-      alunos: parseInt(q('section p')) || 0, termino: q('[data-testid="endDate"] p:last-child'), aula: q('[data-testid="nextKlass"] p') });
+      alunos: parseInt(([...li.querySelectorAll('p')].find(p => /^\d+$/.test(p.textContent.trim())) || {}).textContent) || 0, termino: q('[data-testid="endDate"] p:last-child'), aula: q('[data-testid="nextKlass"] p') });
   })));
   return out;
 }
@@ -74,7 +74,7 @@ async function addT() { await call('addTeacher', { nome: $('#n').value, email: $
 let D;
 async function teacher(id) {
   D = await call('teacher', { id }); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
-  const tur = D.turmas.filter(t => L && t.mes === L.mes), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
+  const tur = D.turmas.filter(t => L && t.feedbackId === L.id), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
   const card = (n, k, lg) => `<div class="card"><div class="mu">${n}</div><div class="big">${L ? L[k] + (k === 'churn' ? '%' : '') : '–'}</div>${L ? delta(+L[k], P && +P[k], lg) : ''}</div>`;
   app.innerHTML = `<button class="g" onclick="run(home)">← Professores</button><h1>${esc(D.teacher.nome)}</h1>
   <p><button onclick="novoFeedback()">Novo feedback do mês</button></p>
@@ -84,11 +84,15 @@ async function teacher(id) {
   ${tur.length ? `<div class="card"><h3>Semana (${MES(L.mes)})</h3><div style="overflow-x:auto"><div class="week">${DIAS.slice(0, 7).map(d => `<div><b>${d}</b>${tur.filter(t => t.dia === d).sort((a, b) => a.horario < b.horario ? -1 : 1).map(t => `<div class="cl"><b>${t.horario}</b> ${esc(t.modulo)}<br>${t.alunos} alunos</div>`).join('')}</div>`).join('')}</div></div>
   <p><button class="g" onclick="$('#tt').hidden=!$('#tt').hidden">Mostrar/ocultar tabela de turmas</button></p>
   <table id="tt" hidden><tr><th>Turma</th><th>Módulo</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>#${t.turmaId}</td><td>${esc(t.modulo)}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div>` : ''}
-  <div class="card"><h3>Histórico mês a mês</h3><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${f.churn}% ${delta(+f.churn, p && +p.churn, 1)}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td></tr>`; }).join('')}</table></div>
+  <div class="card"><h3>Histórico mês a mês</h3><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${f.churn}% ${delta(+f.churn, p && +p.churn, 1)}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div>
   <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · resolvido em ' + MES(p.mesResolvido) : ''})</span></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
   <div class="card"><h3>Ocorrências</h3><span class="mu">Em breve: virá da planilha de ocorrências (graves, médias…).</span></div>`;
 }
 
+async function delF(id, m) {
+  if (!confirm('Excluir o feedback de ' + m + '? Turmas e pontos criados nesse mês também serão removidos.')) return;
+  await call('deleteFeedback', { id }); toast('Feedback excluído'); teacher(D.teacher.id);
+}
 let TUR = [];
 function novoFeedback() {
   const pend = D.pontos.filter(p => p.status === 'pendente'), now = new Date().toISOString().slice(0, 7); TUR = [];
