@@ -74,10 +74,19 @@ const delta = (a, b, lowGood) => { if (b === undefined) return ''; const d = +(a
 async function home() {
   app.innerHTML = '<h1>Professores</h1><p class="mu">Carregando…</p>';
   const ts = await call('teachers');
-  app.innerHTML = `<h1>Professores</h1><div class="row">${ts.map(t => `<div class="card t" onclick="run(()=>teacher('${t.id}'))"><h3>${esc(t.nome)}</h3><span class="mu">${esc(t.email)}</span></div>`).join('') || '<p class="mu">Nenhum professor cadastrado ainda.</p>'}</div>
-  <div class="card"><h3>Adicionar professor</h3><label>Nome (igual ao que aparece nas turmas)</label><input id="n"><label>E-mail</label><input id="e"><p><button onclick="run(addT)">Adicionar professor</button></p></div>`;
+  app.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h1>Professores</h1><button onclick="addForm()">+ Adicionar professor</button></div>
+  <div class="row">${ts.map(t => `<div class="card t" onclick="run(()=>teacher('${t.id}'))"><h3>${esc(t.nome)}</h3><span class="mu">${esc(t.email)}</span></div>`).join('') || '<div class="card mu" style="text-align:center;padding:30px">Nenhum professor foi cadastrado até o momento.</div>'}</div>`;
 }
-async function addT() { await call('addTeacher', { nome: $('#n').value, email: $('#e').value }); toast('Professor adicionado'); home(); }
+function addForm() {
+  app.innerHTML = `<button class="g" onclick="run(home)">← Cancelar</button><h1>Adicionar professor</h1>
+  <div class="card"><label>Nome (igual ao que aparece nas turmas)</label><input id="n"><label>E-mail</label><input id="e"><p><button onclick="run(addT)">Adicionar professor</button></p></div>`;
+  $('#n').focus();
+}
+async function addT() {
+  if (!$('#n').value.trim()) throw new Error('Informe o nome do professor');
+  await call('addTeacher', { nome: $('#n').value, email: $('#e').value });
+  toast('Professor adicionado'); await home();
+}
 
 let D;
 async function teacher(id) {
@@ -108,8 +117,15 @@ function novoFeedback() {
   <div class="card"><div class="row"><div><label>Mês</label><input id="mes" type="month" value="${now}"></div><div><label>Churn (%)</label><input id="ch" inputmode="decimal" placeholder="ex.: 4,4 ou 4.4"></div></div>
   <label>Cole o HTML da página de turmas (já filtrada pelo professor)</label><textarea id="html" rows="5" oninput="prev()"></textarea><div id="pv" class="mu"></div></div>
   <div class="card"><h3>Pontos do último feedback</h3>${pend.map(p => `<label style="color:var(--tx)"><input type="checkbox" class="mel" value="${p.id}" style="width:auto"> Melhorou: ${esc(p.texto)} <span class="mu">(${MES(p.mesCriado)})</span></label>`).join('') || '<span class="mu">Nenhum ponto pendente.</span>'}
-  <label>Novos pontos a melhorar (um por linha)</label><textarea id="nv" rows="3"></textarea><label>Observações</label><textarea id="ob" rows="2"></textarea></div>
+  <label>Novos pontos a melhorar</label><div id="nv"></div><p><button type="button" class="g" onclick="addPonto()">+ Adicionar ponto</button></p><label>Observações</label><textarea id="ob" rows="2"></textarea></div>
   <button onclick="run(save)">Salvar feedback</button>`;
+  addPonto(false);
+}
+function addPonto(foco) {
+  const d = document.createElement('div'); d.style.cssText = 'display:flex;gap:6px;margin-top:6px';
+  d.innerHTML = '<input class="nv" placeholder="Ex.: comunicar melhor com os alunos"><button type="button" class="g" title="Remover" onclick="this.parentNode.remove()">✕</button>';
+  const i = d.firstChild; i.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addPonto(); } };
+  $('#nv').appendChild(d); if (foco !== false) i.focus();
 }
 function prev() {
   TUR = parseHTML($('#html').value).filter(t => t.professor.toLowerCase() === D.teacher.nome.toLowerCase());
@@ -123,7 +139,7 @@ async function save() {
   const ja = D.feedbacks.find(f => f.mes === $('#mes').value);
   if (ja && !confirm('Você já tem um feedback de ' + MES(ja.mes) + ' para este professor.\n\nSe salvar, ele será substituído por este novo (turmas, churn, observações e pontos criados naquele mês).\n\nTem certeza?')) return;
   await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, churn: ch, obs: $('#ob').value, turmas: TUR,
-    melhorados: [...document.querySelectorAll('.mel:checked')].map(c => c.value), novos: $('#nv').value.split('\n').map(s => s.trim()) });
+    melhorados: [...document.querySelectorAll('.mel:checked')].map(c => c.value), novos: [...document.querySelectorAll('.nv')].map(i => i.value.trim()).filter(Boolean) });
   toast('Feedback salvo'); teacher(D.teacher.id);
 }
 run(home);
