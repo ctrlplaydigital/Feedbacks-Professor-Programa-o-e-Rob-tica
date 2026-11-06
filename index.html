@@ -19,7 +19,7 @@ td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left;font-s
 </style></head><body><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxIFJT_HAOXxikHGYuJY0f4rW2fZhyHbM-LwkoqkAiw3c7exh6DVY4Ka5j4GiazQoCv/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxSFQlSvj0aWBCkq-U-tmHrYhgntDLjbRmHKQs8u6USgYgGK2LNKCY1a_UhBT2QS934/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -74,8 +74,8 @@ const delta = (a, b, lowGood) => { if (b === undefined) return ''; const d = +(a
 async function home() {
   app.innerHTML = '<h1>Professores</h1><p class="mu">Carregando…</p>';
   const ts = await call('teachers');
-  app.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h1>Professores</h1><button onclick="addForm()">+ Adicionar professor</button></div>
-  <div class="row">${ts.map(t => `<div class="card t" onclick="run(()=>teacher('${t.id}'))"><h3>${esc(t.nome)}</h3><span class="mu">${esc(t.email)}</span></div>`).join('') || '<div class="card mu" style="text-align:center;padding:30px">Nenhum professor foi cadastrado até o momento.</div>'}</div>`;
+  app.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><h1>Professores</h1><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="g" onclick="run(school)">Visão da escola</button><button onclick="addForm()">+ Adicionar professor</button></div></div>
+  <div class="row">${ts.map(t => `<div class="card t" onclick="run(()=>teacher('${t.id}'))"><h3>${esc(t.nome)}</h3><span class="mu">${esc(t.email)}</span><div style="margin-top:8px;font-size:13px">${t.ultimoMes ? `Último feedback: <b>${MES(t.ultimoMes)}</b> <span class="mu">(lançado em ${new Date(t.ultimoEm).toLocaleDateString('pt-BR')})</span>` : '<span class="mu">Nenhum feedback lançado</span>'}</div></div>`).join('') || '<div class="card mu" style="text-align:center;padding:30px">Nenhum professor foi cadastrado até o momento.</div>'}</div>`;
 }
 function addForm() {
   app.innerHTML = `<button class="g" onclick="run(home)">← Cancelar</button><h1>Adicionar professor</h1>
@@ -86,6 +86,34 @@ async function addT() {
   if (!$('#n').value.trim()) throw new Error('Informe o nome do professor');
   await call('addTeacher', { nome: $('#n').value, email: $('#e').value });
   toast('Professor adicionado'); await home();
+}
+
+/* ===== Visão da escola: soma de todos os professores, mês a mês ===== */
+let SCH;
+async function school() {
+  const S = await call('school'), ts = S.teachers.filter(t => t.ativo !== 'não'), ids = new Set(ts.map(t => t.id));
+  const fs = S.feedbacks.filter(f => ids.has(f.teacherId)), meses = [...new Set(fs.map(f => f.mes))].sort();
+  const agg = meses.map(m => {
+    const l = fs.filter(f => f.mes === m), al = l.reduce((s, f) => s + +f.alunos, 0), tu = l.reduce((s, f) => s + +f.turmas, 0);
+    const ch = al ? l.reduce((s, f) => s + +f.churn * +f.alunos, 0) / al : l.reduce((s, f) => s + +f.churn, 0) / (l.length || 1); // churn ponderado pelo nº de alunos
+    return { m, n: l.length, tu, al, ch: +ch.toFixed(1) };
+  });
+  SCH = { ts, fs, agg };
+  const L = agg[agg.length - 1], P = agg[agg.length - 2], pn = S.pontos.filter(p => ids.has(p.teacherId));
+  const card = (n, v, d) => `<div class="card"><div class="mu">${n}</div><div class="big">${v}</div>${d}</div>`;
+  app.innerHTML = `<button class="g" onclick="run(home)">← Professores</button><h1>Visão da escola</h1>
+  ${!L ? '<div class="card mu" style="text-align:center;padding:30px">Ainda não há feedbacks lançados.</div>' : `
+  <div class="mu">Mês mais recente: ${MES(L.m)} · ${L.n} de ${ts.length} professores com feedback${P ? ' (comparado a ' + MES(P.m) + ')' : ''}</div>
+  <div class="row">${card('Churn médio da escola', L.ch + '%', delta(L.ch, P && P.ch, 1))}${card('Turmas', L.tu, delta(L.tu, P && P.tu))}${card('Alunos', L.al, delta(L.al, P && P.al))}${card('Pontos melhorados', pn.filter(p => p.status === 'melhorado').length + '/' + pn.length, '<span class="mu">' + pn.filter(p => p.status === 'pendente').length + ' pendentes</span>')}</div>
+  <div class="row">${chart('Churn médio (%)', agg.map(a => a.ch), agg.map(a => MES(a.m)))}${chart('Turmas', agg.map(a => a.tu), agg.map(a => MES(a.m)))}${chart('Alunos', agg.map(a => a.al), agg.map(a => MES(a.m)))}</div>
+  <div class="card"><h3>Escola mês a mês</h3><div class="mu" style="font-size:13px">Churn = média ponderada pelo número de alunos de cada professor. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
+  <table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td></tr>`; }).join('')}</table></div>
+  <div class="card"><h3>Detalhe por professor</h3><select id="sm" onchange="schoolMes(this.value)" style="background:#0b1120;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px">${[...meses].reverse().map(m => `<option value="${m}">${MES(m)}</option>`).join('')}</select><div id="bd"></div></div>`}`;
+  if (L) schoolMes(L.m);
+}
+function schoolMes(m) {
+  const l = SCH.fs.filter(f => f.mes === m), sem = SCH.ts.filter(t => !l.some(f => f.teacherId === t.id));
+  $('#bd').innerHTML = `<table><tr><th>Professor</th><th>Churn</th><th>Turmas</th><th>Alunos</th></tr>${l.map(f => `<tr><td>${esc((SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td><td>${f.churn}%</td><td>${f.turmas}</td><td>${f.alunos}</td></tr>`).join('')}</table>${sem.length ? `<p class="dn">Sem feedback neste mês: ${sem.map(t => esc(t.nome)).join(', ')}</p>` : ''}`;
 }
 
 let D;
