@@ -37,7 +37,7 @@ button.p{background:var(--acento);border-color:var(--acento);color:#fff;padding:
 .act{background:#eeeefa;border-radius:12px;padding:12px 14px;margin-top:10px}
 .act label.ck{display:flex;gap:10px;color:var(--tinta);font-size:.9375rem;font-weight:400;align-items:flex-start;cursor:pointer;margin:0}
 .act input[type=checkbox]{width:18px;height:18px;margin-top:4px;flex:none;accent-color:var(--acento)}
-table{width:100%;border-collapse:collapse;display:block;overflow-x:auto}
+.tw{overflow-x:auto;width:100%}table{width:100%;border-collapse:collapse}
 th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px solid var(--linha);text-align:left;font-size:.875rem;white-space:nowrap}td:nth-child(5){white-space:normal}
 .big{font-size:1.75rem;font-weight:700;color:var(--marinho);line-height:1.2}.up{color:var(--leve);font-weight:600}.dn{color:var(--erro);font-weight:600}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px}.week div b{display:block;text-align:center;color:var(--marinho)}
@@ -51,7 +51,7 @@ th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px
 </style></head><body><header class="topo"><div class="topo-in"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"><span>Feedback de Professores</span></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxSFQlSvj0aWBCkq-U-tmHrYhgntDLjbRmHKQs8u6USgYgGK2LNKCY1a_UhBT2QS934/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzqeAo69xS-q2RVmMhPX2fr2wnSvuFuKGX1GOvV7pbWIyrgIOPr-IZvpI8hqAcgkq8m/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -96,11 +96,13 @@ function parseHTML(html) {
 }
 
 /* ===== Gráfico simples em SVG (sem bibliotecas) ===== */
+let CG = 0; // contador para dar um id único ao degradê de cada gráfico
 function chart(title, vals, labels, bad) {
   if (!vals.length) return '';
   const W = 300, H = 90, mx = Math.max(...vals, 1), mn = Math.min(...vals, 0), r = mx - mn || 1;
-  const pts = vals.map((v, i) => [vals.length < 2 ? W / 2 : 10 + i * (W - 20) / (vals.length - 1), H - 15 - (v - mn) / r * (H - 30)]);
-  return `<div class="card"><div class="mu">${title}</div><svg viewBox="0 0 ${W} ${H}" width="100%"><polyline fill="none" stroke="#2b2a74" stroke-width="2.5" points="${pts.map(p => p.join(',')).join(' ')}"/>
+  const gid = 'gr' + (++CG), base = H - 15;
+  const pts = vals.map((v, i) => [vals.length < 2 ? W / 2 : 26 + i * (W - 52) / (vals.length - 1), H - 15 - (v - mn) / r * (H - 30)]);
+  return `<div class="card"><div class="mu">${title}</div><svg viewBox="0 0 ${W} ${H}" width="100%"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2a74" stop-opacity=".38"/><stop offset="1" stop-color="#2b2a74" stop-opacity=".03"/></linearGradient></defs><polygon fill="url(#${gid})" points="${pts[0][0]},${base} ${pts.map(p => p.join(',')).join(' ')} ${pts[pts.length - 1][0]},${base}"/><polyline fill="none" stroke="#2b2a74" stroke-width="2.5" points="${pts.map(p => p.join(',')).join(' ')}"/>
   ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#e8173f"/><text x="${p[0]}" y="${H - 2}" font-size="9" fill="#6b6d80" text-anchor="middle">${labels[i]}</text><text x="${p[0]}" y="${p[1] - 6}" font-size="10" font-weight="600" fill="#3a3b4d" text-anchor="middle">${vals[i]}</text>`).join('')}</svg></div>`;
 }
 const delta = (a, b, lowGood) => { if (b === undefined) return ''; const d = +(a - b).toFixed(1); if (!d) return '<span class="mu">= igual</span>'; const good = lowGood ? d < 0 : d > 0; return `<span class="${good ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}</span>`; };
@@ -145,13 +147,13 @@ async function school() {
   <div class="row">${card('Churn médio da escola', L.ch + '%', delta(L.ch, P && P.ch, 1))}${card('Turmas', L.tu, delta(L.tu, P && P.tu))}${card('Alunos', L.al, delta(L.al, P && P.al))}${card('Pontos melhorados', pn.filter(p => p.status === 'melhorado').length + '/' + pn.length, '<span class="mu">' + pn.filter(p => p.status === 'pendente').length + ' pendentes</span>')}</div>
   <div class="row">${chart('Churn médio (%)', agg.map(a => a.ch), agg.map(a => MES(a.m)))}${chart('Turmas', agg.map(a => a.tu), agg.map(a => MES(a.m)))}${chart('Alunos', agg.map(a => a.al), agg.map(a => MES(a.m)))}</div>
   <div class="card"><h3>Escola mês a mês</h3><div class="hint">Churn = média ponderada pelo número de alunos de cada professor. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
-  <table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td></tr>`; }).join('')}</table></div>
+  <div class="tw"><table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Detalhe por professor</h3><select id="sm" onchange="schoolMes(this.value)">${[...meses].reverse().map(m => `<option value="${m}">${MES(m)}</option>`).join('')}</select><div id="bd"></div></div>`}`;
   if (L) schoolMes(L.m);
 }
 function schoolMes(m) {
   const l = SCH.fs.filter(f => f.mes === m), sem = SCH.ts.filter(t => !l.some(f => f.teacherId === t.id));
-  $('#bd').innerHTML = `<table><tr><th>Professor</th><th>Churn</th><th>Turmas</th><th>Alunos</th></tr>${l.map(f => `<tr><td>${esc((SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td><td>${f.churn}%</td><td>${f.turmas}</td><td>${f.alunos}</td></tr>`).join('')}</table>${sem.length ? `<p class="dn">Sem feedback neste mês: ${sem.map(t => esc(t.nome)).join(', ')}</p>` : ''}`;
+  $('#bd').innerHTML = `<div class="tw"><table><tr><th>Professor</th><th>Churn</th><th>Turmas</th><th>Alunos</th></tr>${l.map(f => `<tr><td>${esc((SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td><td>${f.churn}%</td><td>${f.turmas}</td><td>${f.alunos}</td></tr>`).join('')}</table></div>${sem.length ? `<p class="dn">Sem feedback neste mês: ${sem.map(t => esc(t.nome)).join(', ')}</p>` : ''}`;
 }
 
 let D;
@@ -166,8 +168,8 @@ async function teacher(id) {
   <div class="row">${chart('Churn (%)', fs.map(f => +f.churn), fs.map(f => MES(f.mes)))}${chart('Turmas', fs.map(f => +f.turmas), fs.map(f => MES(f.mes)))}${chart('Alunos', fs.map(f => +f.alunos), fs.map(f => MES(f.mes)))}</div>
   ${tur.length ? `<div class="card"><h3>Semana (${MES(L.mes)})</h3><div style="overflow-x:auto"><div class="week">${DIAS.slice(0, 7).map(d => `<div><b>${d}</b>${tur.filter(t => t.dia === d).sort((a, b) => a.horario < b.horario ? -1 : 1).map(t => `<div class="cl"><b>${t.horario}</b> ${esc(t.modulo)}<br>${t.alunos} alunos</div>`).join('')}</div>`).join('')}</div></div>
   <p><button onclick="$('#tt').hidden=!$('#tt').hidden" style="margin-bottom:10px">Mostrar/ocultar tabela de turmas</button></p>
-  <table id="tt" hidden><tr><th>Turma</th><th>Módulo</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>#${t.turmaId}</td><td>${esc(t.modulo)}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div>` : ''}
-  <div class="card"><h3>Histórico mês a mês</h3><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${f.churn}% ${delta(+f.churn, p && +p.churn, 1)}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div>
+  <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Módulo</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>#${t.turmaId}</td><td>${esc(t.modulo)}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
+  <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${f.churn}% ${delta(+f.churn, p && +p.churn, 1)}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · resolvido em ' + MES(p.mesResolvido) : ''})</span></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
   <div class="card"><h3>Ocorrências</h3><span class="mu">Em breve: virá da planilha de ocorrências (graves, médias…).</span></div>`;
 }
