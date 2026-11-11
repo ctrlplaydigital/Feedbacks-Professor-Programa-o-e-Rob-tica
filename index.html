@@ -41,7 +41,7 @@ button.p{background:var(--acento);border-color:var(--acento);color:#fff;padding:
 th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px solid var(--linha);text-align:left;font-size:.875rem;white-space:nowrap}td:nth-child(5){white-space:normal}
 .big{font-size:1.75rem;font-weight:700;color:var(--marinho);line-height:1.2}.up{color:var(--leve);font-weight:600}.dn{color:var(--erro);font-weight:600}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px}.week div b{display:block;text-align:center;color:var(--marinho)}
-.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
+.cn{font-weight:600;color:var(--marinho);word-break:break-word}.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
 .t{cursor:pointer;transition:border-color .15s,transform .15s}.t:hover{border-color:var(--acento);transform:translateY(-1px)}
 #ld{position:fixed;inset:0;background:rgba(247,248,251,.85);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:50;font-weight:600;color:var(--marinho)}#ld.on{display:flex}
 .sp{width:40px;height:40px;border:4px solid var(--linha);border-top-color:var(--acento);border-radius:50%;animation:rot .8s linear infinite}@keyframes rot{to{transform:rotate(360deg)}}
@@ -51,7 +51,7 @@ th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px
 </style></head><body><header class="topo"><div class="topo-in"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"><span>Feedback de Professores</span></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzqeAo69xS-q2RVmMhPX2fr2wnSvuFuKGX1GOvV7pbWIyrgIOPr-IZvpI8hqAcgkq8m/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwyWcEwOxzhdhdukHtB7SELBeXyWPfToMJ1fTpWVWefIEC5sqsl5_we42zMHA5G1HwF/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -69,6 +69,7 @@ async function call(action, data) {
   try { return await rawCall(action, data); }
   finally { if (--pend <= 0) { pend = 0; $('#ld').classList.remove('on'); } }
 }
+const nomeTurma = t => `#${t.turmaId} - ${t.modulo} / ${t.mesInicio} / ${String(t.dia).split('-')[0].toUpperCase()} / ${t.horario} / ${t.professor}`;
 const hero = (t, s) => `<div class="hero"><h1>${t}</h1><p class="sub">${s || ''}</p></div>`;
 const tip = t => `<span class="tip" tabindex="0" role="img" aria-label="${esc(t)}">i<span class="tt" aria-hidden="true">${esc(t)}</span></span>`;
 const lab = (t, d) => `<label>${t}${d ? tip(d) : ''}</label>`;
@@ -166,9 +167,9 @@ async function teacher(id) {
   ${L ? `<div class="mu">Último feedback: ${MES(L.mes)} (comparado a ${P ? MES(P.mes) : 'nenhum mês anterior'})</div>` : '<div class="mu">Sem feedbacks ainda.</div>'}
   <div class="row">${card('Churn','churn',1)}${card('Turmas','turmas')}${card('Alunos','alunos')}<div class="card"><div class="mu">Pontos melhorados</div><div class="big">${ok.length}/${D.pontos.length}</div><span class="mu">${pend.length} pendentes</span></div></div>
   <div class="row">${chart('Churn (%)', fs.map(f => +f.churn), fs.map(f => MES(f.mes)))}${chart('Turmas', fs.map(f => +f.turmas), fs.map(f => MES(f.mes)))}${chart('Alunos', fs.map(f => +f.alunos), fs.map(f => MES(f.mes)))}</div>
-  ${tur.length ? `<div class="card"><h3>Semana (${MES(L.mes)})</h3><div style="overflow-x:auto"><div class="week">${DIAS.slice(0, 7).map(d => `<div><b>${d}</b>${tur.filter(t => t.dia === d).sort((a, b) => a.horario < b.horario ? -1 : 1).map(t => `<div class="cl"><b>${t.horario}</b> ${esc(t.modulo)}<br>${t.alunos} alunos</div>`).join('')}</div>`).join('')}</div></div>
+  ${tur.length ? `<div class="card"><h3>Semana (${MES(L.mes)})</h3><div style="overflow-x:auto"><div class="week">${DIAS.slice(0, 7).map(d => `<div><b>${d}</b>${tur.filter(t => t.dia === d).sort((a, b) => a.horario < b.horario ? -1 : 1).map(t => `<div class="cl"><span class="cn">${esc(nomeTurma(t))}</span><br>${t.alunos} alunos</div>`).join('')}</div>`).join('')}</div></div>
   <p><button onclick="$('#tt').hidden=!$('#tt').hidden" style="margin-bottom:10px">Mostrar/ocultar tabela de turmas</button></p>
-  <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Módulo</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>#${t.turmaId}</td><td>${esc(t.modulo)}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
+  <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>${esc(nomeTurma(t))}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
   <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${f.churn}% ${delta(+f.churn, p && +p.churn, 1)}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · resolvido em ' + MES(p.mesResolvido) : ''})</span></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
   <div class="card"><h3>Ocorrências</h3><span class="mu">Em breve: virá da planilha de ocorrências (graves, médias…).</span></div>`;
