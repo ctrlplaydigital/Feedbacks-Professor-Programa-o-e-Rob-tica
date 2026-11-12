@@ -41,7 +41,9 @@ button.p{background:var(--acento);border-color:var(--acento);color:#fff;padding:
 th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px solid var(--linha);text-align:left;font-size:.875rem;white-space:nowrap}td:nth-child(5){white-space:normal}
 .big{font-size:1.75rem;font-weight:700;color:var(--marinho);line-height:1.2}.up{color:var(--leve);font-weight:600}.dn{color:var(--erro);font-weight:600}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px}.week div b{display:block;text-align:center;color:var(--marinho)}
-.det td{white-space:normal;min-width:90px}.cn{font-weight:600;color:var(--marinho);word-break:break-word}.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
+.det td{white-space:normal;min-width:90px;vertical-align:top}.grid select{width:100%;min-width:0;text-overflow:ellipsis}
+.pill{display:inline-block;padding:2px 11px;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap}.pg{background:#fde2e7;color:#b0102a}.pm{background:var(--media-bg);color:var(--media)}.pl{background:var(--leve-bg);color:var(--leve)}.po{background:#e8e9f1;color:var(--suave)}
+tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weight:600;color:var(--marinho);word-break:break-word}.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
 .t{cursor:pointer;transition:border-color .15s,transform .15s}.t:hover{border-color:var(--acento);transform:translateY(-1px)}
 #ld{position:fixed;inset:0;background:rgba(247,248,251,.85);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:50;font-weight:600;color:var(--marinho)}#ld.on{display:flex}
 .sp{width:40px;height:40px;border:4px solid var(--linha);border-top-color:var(--acento);border-radius:50%;animation:rot .8s linear infinite}@keyframes rot{to{transform:rotate(360deg)}}
@@ -51,7 +53,7 @@ th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px
 </style></head><body><header class="topo"><div class="topo-in"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"><span>Feedback de Professores</span></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbz6GQ226WU4e1HGXvGOMXUVPj1zU1ctpii6334_MAvkVOsgM9HSi_OgMuk21ZsXtKAO/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxPKzCtolgjBV97IomdWRIeLYwIKzmqoUc4UnJGPsfkyP5rfnQd_JcTPdM3hIofKsWC/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -154,7 +156,7 @@ async function school() {
   <div class="row">${chart('Churn médio (%)', agg.map(a => a.ch), agg.map(a => MES(a.m)))}${chart('Turmas', agg.map(a => a.tu), agg.map(a => MES(a.m)))}${chart('Alunos', agg.map(a => a.al), agg.map(a => MES(a.m)))}</div>
   <div class="card"><h3>Escola mês a mês</h3>${S.ocErro ? '<div class="dn" style="font-size:.8125rem;margin-bottom:6px">Ocorrências: ' + esc(S.ocErro) + '</div>' : ''}<div class="hint">Churn = média ponderada pelo número de alunos de cada professor. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
   <div class="tw"><table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td><td>${a.oc} <span class="mu">(${a.gr} graves)</span></td></tr>`; }).join('')}</table></div></div>
-  <div class="card"><h3>Detalhe por professor</h3><select id="sm" onchange="schoolMes(this.value)">${[...meses].reverse().map(m => `<option value="${m}">${MES(m)}</option>`).join('')}</select><div id="bd"></div></div>`}`;
+  <div class="card"><h3>Detalhe por professor</h3><select id="sm" onchange="schoolMes(this.value)">${[...meses].reverse().map(m => `<option value="${m}">${MES(m)}</option>`).join('')}</select><div id="bd"></div></div>`}${ocSchool()}`;
   if (L) schoolMes(L.m);
 }
 const ocTxt = (m, nm) => { const k = SCH.ocs.filter(o => o.mes === m && nn(o.professor) === nn(nm)); return k.length + ' <span class="mu">(' + k.filter(o => clsOf(o) === 'graves').length + ' graves)</span>'; };
@@ -185,6 +187,31 @@ async function delF(id, m) {
   if (!confirm('Excluir o feedback de ' + m + '? Turmas e pontos criados nesse mês também serão removidos.')) return;
   await call('deleteFeedback', { id }); toast('Feedback excluído'); teacher(D.teacher.id);
 }
+const pill = c => { const x = nn(c), k = x.startsWith('grav') ? 'pg' : x.startsWith('med') ? 'pm' : x.startsWith('lev') ? 'pl' : 'po'; return `<span class="pill ${k}">${esc(c)}</span>`; };
+const cnt = (l, k) => l.filter(o => !k || clsOf(o) === k).length;
+const totRow = (nome, l) => `<tr class="tot"><td>${nome}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td>${l.length}</td></tr>`;
+const ocHead = n => `<tr><th>${n}</th><th>Graves</th><th>Médias</th><th>Outras</th><th>Total</th></tr>`;
+/* Tabela de detalhes com filtros dinâmicos (usada na ficha do professor e na visão da escola) */
+let OCL = {};
+function ocDetail(id, list, comProf) {
+  OCL[id] = { list, comProf };
+  const uniq = k => [...new Set(list.map(o => o[k]).filter(Boolean))].sort();
+  const sel = (k, n) => `<div>${lab(n)}<select data-k="${k}" onchange="ocF('${id}')"><option value="">Todos</option>${uniq(k).map(v => `<option>${esc(v)}</option>`).join('')}</select></div>`;
+  setTimeout(() => ocF(id), 0);
+  return `<div class="grid" id="${id}f"><div>${lab('Data de')}<input type="date" data-k="de" onchange="ocF('${id}')"></div><div>${lab('Data até')}<input type="date" data-k="ate" onchange="ocF('${id}')"></div>
+  ${comProf ? sel('professor', 'Professor') : ''}${sel('turma', 'Turma')}${sel('tipo', 'Tipo')}${sel('assunto', 'Assunto')}${sel('motivo', 'Motivo')}${sel('classificacao', 'Classificação')}
+  <div>${lab('Descrição contém')}<input type="search" data-k="q" placeholder="Buscar no texto" oninput="ocF('${id}')"></div></div>
+  <p class="hint" id="${id}c" style="margin:14px 0 8px"></p><div class="tw det"><table id="${id}t"></table></div>`;
+}
+function ocF(id) {
+  const el = $('#' + id + 't'); if (!el) return;
+  const { list, comProf } = OCL[id], f = {};
+  document.querySelectorAll('#' + id + 'f [data-k]').forEach(e => f[e.dataset.k] = e.value.trim());
+  const L = list.filter(o => (!f.de || o.data >= f.de) && (!f.ate || o.data <= f.ate) && ['professor', 'turma', 'tipo', 'assunto', 'motivo', 'classificacao'].every(k => !f[k] || o[k] === f[k]) && (!f.q || nn(o.descricao).includes(nn(f.q))));
+  $('#' + id + 'c').textContent = L.length + ' de ' + list.length + ' ocorrências';
+  el.innerHTML = `<tr><th>Data</th>${comProf ? '<th>Professor</th>' : ''}<th>Turma</th><th>Tipo</th><th>Assunto</th><th>Motivo</th><th>Classificação</th><th>Descrição</th></tr>` +
+    (L.map(o => `<tr><td>${o.data.split('-').reverse().join('/')}</td>${comProf ? `<td>${esc(o.professor)}</td>` : ''}<td>${esc(o.turma)}</td><td>${esc(o.tipo)}</td><td>${esc(o.assunto)}</td><td>${esc(o.motivo)}</td><td>${pill(o.classificacao)}</td><td>${esc(o.descricao)}</td></tr>`).join('') || '<tr><td colspan="9" class="mu">Nenhuma ocorrência com esses filtros.</td></tr>');
+}
 function ocBlock() {
   const vazio = t => `<div class="card"><h3>Ocorrências</h3><span class="mu">${esc(t)}</span></div>`, oc = D.ocorrencias || [];
   if (D.ocErro) return vazio(D.ocErro);
@@ -194,10 +221,19 @@ function ocBlock() {
   const card = (n, k) => `<div class="card"><div class="mu">${n}</div><div class="big">${c(U, k)}</div>${delta(c(U, k), c(A, k), 1)}</div>`;
   return `<div class="card"><h3>Ocorrências</h3><div class="mu">Mês mais recente com ocorrências: ${MES(U)} (comparado a ${MES(A)})</div>
   <div class="row">${card('Total', '')}${card('Graves', 'graves')}${card('Médias', 'medias')}${card('Outras', 'outras')}</div></div>
-  <div class="row">${chart('Ocorrências por mês', meses.map(m => c(m)), meses.map(MES))}</div>
-  <div class="card"><h3>Ocorrências mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Graves</th><th>Médias</th><th>Outras</th><th>Total</th></tr>${[...meses].reverse().map(m => `<tr><td>${MES(m)}</td><td>${c(m, 'graves')}</td><td>${c(m, 'medias')}</td><td>${c(m, 'outras')}</td><td><b>${c(m)}</b></td></tr>`).join('')}</table></div>
-  <p style="margin:14px 0 10px"><button onclick="$('#ocd').hidden=!$('#ocd').hidden">Mostrar/ocultar detalhes das ocorrências</button></p>
-  <div class="tw det" id="ocd" hidden><table><tr><th>Data</th><th>Turma</th><th>Tipo</th><th>Assunto</th><th>Motivo</th><th>Classificação</th><th>Descrição</th></tr>${oc.map(o => `<tr><td>${o.data.split('-').reverse().join('/')}</td><td>${esc(o.turma)}</td><td>${esc(o.tipo)}</td><td>${esc(o.assunto)}</td><td>${esc(o.motivo)}</td><td>${esc(o.classificacao)}</td><td>${esc(o.descricao)}</td></tr>`).join('')}</table></div></div>`;
+  <div class="row" style="align-items:flex-start"><div class="card" style="flex:2 1 420px"><h3>Ocorrências mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => `<tr><td>${MES(m)}</td><td>${c(m, 'graves')}</td><td>${c(m, 'medias')}</td><td>${c(m, 'outras')}</td><td><b>${c(m)}</b></td></tr>`).join('')}${totRow('Todos os meses', oc)}</table></div></div>
+  <div style="flex:1 1 240px;max-width:340px">${chart('Ocorrências por mês', meses.map(m => c(m)), meses.map(MES))}</div></div>
+  <div class="card"><h3>Detalhes das ocorrências</h3>${ocDetail('ocp', oc, false)}</div>`;
+}
+/* Ocorrências na visão da escola */
+function ocSchool() {
+  const oc = SCH.ocs;
+  if (SCH.ocErro) return `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">${esc(SCH.ocErro)}</span></div>`;
+  if (!oc.length) return `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">Nenhuma ocorrência registrada para os professores cadastrados.</span></div>`;
+  const meses = [...new Set(oc.map(o => o.mes))].sort(), profs = [...new Set(oc.map(o => o.professor))].sort();
+  return `<div class="row" style="align-items:flex-start"><div class="card" style="flex:1 1 320px"><h3>Ocorrências da escola mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => { const l = oc.filter(o => o.mes === m); return `<tr><td>${MES(m)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os meses', oc)}</table></div></div>
+  <div class="card" style="flex:1 1 320px"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div></div>
+  <div class="card"><h3>Detalhes das ocorrências da escola</h3>${ocDetail('ocs', oc, true)}</div>`;
 }
 let TUR = [];
 function novoFeedback() {
