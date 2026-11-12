@@ -41,7 +41,7 @@ button.p{background:var(--acento);border-color:var(--acento);color:#fff;padding:
 th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px solid var(--linha);text-align:left;font-size:.875rem;white-space:nowrap}td:nth-child(5){white-space:normal}
 .big{font-size:1.75rem;font-weight:700;color:var(--marinho);line-height:1.2}.up{color:var(--leve);font-weight:600}.dn{color:var(--erro);font-weight:600}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px}.week div b{display:block;text-align:center;color:var(--marinho)}
-.cn{font-weight:600;color:var(--marinho);word-break:break-word}.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
+.det td{white-space:normal;min-width:90px}.cn{font-weight:600;color:var(--marinho);word-break:break-word}.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
 .t{cursor:pointer;transition:border-color .15s,transform .15s}.t:hover{border-color:var(--acento);transform:translateY(-1px)}
 #ld{position:fixed;inset:0;background:rgba(247,248,251,.85);display:none;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:50;font-weight:600;color:var(--marinho)}#ld.on{display:flex}
 .sp{width:40px;height:40px;border:4px solid var(--linha);border-top-color:var(--acento);border-radius:50%;animation:rot .8s linear infinite}@keyframes rot{to{transform:rotate(360deg)}}
@@ -51,7 +51,7 @@ th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px
 </style></head><body><header class="topo"><div class="topo-in"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"><span>Feedback de Professores</span></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbwyWcEwOxzhdhdukHtB7SELBeXyWPfToMJ1fTpWVWefIEC5sqsl5_we42zMHA5G1HwF/exec';
+const API_URL = 'COLE_AQUI_A_URL_DO_WEB_APP';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -70,6 +70,9 @@ async function call(action, data) {
   finally { if (--pend <= 0) { pend = 0; $('#ld').classList.remove('on'); } }
 }
 const nomeTurma = t => `#${t.turmaId} - ${t.modulo} / ${t.mesInicio} / ${String(t.dia).split('-')[0].toUpperCase()} / ${t.horario} / ${t.professor}`;
+const nn = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+const clsOf = o => { const c = nn(o.classificacao); return c.startsWith('grav') ? 'graves' : c.startsWith('med') ? 'medias' : 'outras'; };
+const prevMes = m => { const [y, n] = m.split('-').map(Number), d = new Date(y, n - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 const hero = (t, s) => `<div class="hero"><h1>${t}</h1><p class="sub">${s || ''}</p></div>`;
 const tip = t => `<span class="tip" tabindex="0" role="img" aria-label="${esc(t)}">i<span class="tt" aria-hidden="true">${esc(t)}</span></span>`;
 const lab = (t, d) => `<label>${t}${d ? tip(d) : ''}</label>`;
@@ -134,12 +137,14 @@ let SCH;
 async function school() {
   const S = await call('school'), ts = S.teachers.filter(t => t.ativo !== 'não'), ids = new Set(ts.map(t => t.id));
   const fs = S.feedbacks.filter(f => ids.has(f.teacherId)), meses = [...new Set(fs.map(f => f.mes))].sort();
+  const nomes = new Set(ts.map(t => nn(t.nome))), ocs = (S.ocorrencias || []).filter(o => nomes.has(nn(o.professor)));
   const agg = meses.map(m => {
     const l = fs.filter(f => f.mes === m), al = l.reduce((s, f) => s + +f.alunos, 0), tu = l.reduce((s, f) => s + +f.turmas, 0);
     const ch = al ? l.reduce((s, f) => s + +f.churn * +f.alunos, 0) / al : l.reduce((s, f) => s + +f.churn, 0) / (l.length || 1); // churn ponderado pelo nº de alunos
-    return { m, n: l.length, tu, al, ch: +ch.toFixed(1) };
+    const oo = ocs.filter(o => o.mes === m);
+    return { m, n: l.length, tu, al, ch: +ch.toFixed(1), oc: oo.length, gr: oo.filter(o => clsOf(o) === 'graves').length };
   });
-  SCH = { ts, fs, agg };
+  SCH = { ts, fs, agg, ocs, ocErro: S.ocErro };
   const L = agg[agg.length - 1], P = agg[agg.length - 2], pn = S.pontos.filter(p => ids.has(p.teacherId));
   const card = (n, v, d) => `<div class="card"><div class="mu">${n}</div><div class="big">${v}</div>${d}</div>`;
   app.innerHTML = `<button class="back" onclick="run(home)">← Professores</button>${hero('Visão da escola', 'Todos os professores somados, mês a mês')}
@@ -147,14 +152,15 @@ async function school() {
   <div class="mu">Mês mais recente: ${MES(L.m)} · ${L.n} de ${ts.length} professores com feedback${P ? ' (comparado a ' + MES(P.m) + ')' : ''}</div>
   <div class="row">${card('Churn médio da escola', L.ch + '%', delta(L.ch, P && P.ch, 1))}${card('Turmas', L.tu, delta(L.tu, P && P.tu))}${card('Alunos', L.al, delta(L.al, P && P.al))}${card('Pontos melhorados', pn.filter(p => p.status === 'melhorado').length + '/' + pn.length, '<span class="mu">' + pn.filter(p => p.status === 'pendente').length + ' pendentes</span>')}</div>
   <div class="row">${chart('Churn médio (%)', agg.map(a => a.ch), agg.map(a => MES(a.m)))}${chart('Turmas', agg.map(a => a.tu), agg.map(a => MES(a.m)))}${chart('Alunos', agg.map(a => a.al), agg.map(a => MES(a.m)))}</div>
-  <div class="card"><h3>Escola mês a mês</h3><div class="hint">Churn = média ponderada pelo número de alunos de cada professor. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
-  <div class="tw"><table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td></tr>`; }).join('')}</table></div></div>
+  <div class="card"><h3>Escola mês a mês</h3>${S.ocErro ? '<div class="dn" style="font-size:.8125rem;margin-bottom:6px">Ocorrências: ' + esc(S.ocErro) + '</div>' : ''}<div class="hint">Churn = média ponderada pelo número de alunos de cada professor. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
+  <div class="tw"><table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td><td>${a.oc} <span class="mu">(${a.gr} graves)</span></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Detalhe por professor</h3><select id="sm" onchange="schoolMes(this.value)">${[...meses].reverse().map(m => `<option value="${m}">${MES(m)}</option>`).join('')}</select><div id="bd"></div></div>`}`;
   if (L) schoolMes(L.m);
 }
+const ocTxt = (m, nm) => { const k = SCH.ocs.filter(o => o.mes === m && nn(o.professor) === nn(nm)); return k.length + ' <span class="mu">(' + k.filter(o => clsOf(o) === 'graves').length + ' graves)</span>'; };
 function schoolMes(m) {
   const l = SCH.fs.filter(f => f.mes === m), sem = SCH.ts.filter(t => !l.some(f => f.teacherId === t.id));
-  $('#bd').innerHTML = `<div class="tw"><table><tr><th>Professor</th><th>Churn</th><th>Turmas</th><th>Alunos</th></tr>${l.map(f => `<tr><td>${esc((SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td><td>${f.churn}%</td><td>${f.turmas}</td><td>${f.alunos}</td></tr>`).join('')}</table></div>${sem.length ? `<p class="dn">Sem feedback neste mês: ${sem.map(t => esc(t.nome)).join(', ')}</p>` : ''}`;
+  $('#bd').innerHTML = `<div class="tw"><table><tr><th>Professor</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${l.map(f => `<tr><td>${esc((SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td><td>${f.churn}%</td><td>${f.turmas}</td><td>${f.alunos}</td><td>${ocTxt(m, (SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td></tr>`).join('')}</table></div>${sem.length ? `<p class="dn">Sem feedback neste mês: ${sem.map(t => esc(t.nome)).join(', ')}</p>` : ''}`;
 }
 
 let D;
@@ -172,12 +178,26 @@ async function teacher(id) {
   <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>${esc(nomeTurma(t))}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
   <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${f.churn}% ${delta(+f.churn, p && +p.churn, 1)}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · resolvido em ' + MES(p.mesResolvido) : ''})</span></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
-  <div class="card"><h3>Ocorrências</h3><span class="mu">Em breve: virá da planilha de ocorrências (graves, médias…).</span></div>`;
+  ${ocBlock()}`;
 }
 
 async function delF(id, m) {
   if (!confirm('Excluir o feedback de ' + m + '? Turmas e pontos criados nesse mês também serão removidos.')) return;
   await call('deleteFeedback', { id }); toast('Feedback excluído'); teacher(D.teacher.id);
+}
+function ocBlock() {
+  const vazio = t => `<div class="card"><h3>Ocorrências</h3><span class="mu">${esc(t)}</span></div>`, oc = D.ocorrencias || [];
+  if (D.ocErro) return vazio(D.ocErro);
+  if (!oc.length) return vazio('Nenhuma ocorrência registrada para este professor.');
+  const meses = [...new Set(oc.map(o => o.mes))].sort(), U = meses[meses.length - 1], A = prevMes(U);
+  const c = (m, k) => oc.filter(o => o.mes === m && (!k || clsOf(o) === k)).length;
+  const card = (n, k) => `<div class="card"><div class="mu">${n}</div><div class="big">${c(U, k)}</div>${delta(c(U, k), c(A, k), 1)}</div>`;
+  return `<div class="card"><h3>Ocorrências</h3><div class="mu">Mês mais recente com ocorrências: ${MES(U)} (comparado a ${MES(A)})</div>
+  <div class="row">${card('Total', '')}${card('Graves', 'graves')}${card('Médias', 'medias')}${card('Outras', 'outras')}</div></div>
+  <div class="row">${chart('Ocorrências por mês', meses.map(m => c(m)), meses.map(MES))}</div>
+  <div class="card"><h3>Ocorrências mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Graves</th><th>Médias</th><th>Outras</th><th>Total</th></tr>${[...meses].reverse().map(m => `<tr><td>${MES(m)}</td><td>${c(m, 'graves')}</td><td>${c(m, 'medias')}</td><td>${c(m, 'outras')}</td><td><b>${c(m)}</b></td></tr>`).join('')}</table></div>
+  <p style="margin:14px 0 10px"><button onclick="$('#ocd').hidden=!$('#ocd').hidden">Mostrar/ocultar detalhes das ocorrências</button></p>
+  <div class="tw det" id="ocd" hidden><table><tr><th>Data</th><th>Turma</th><th>Tipo</th><th>Assunto</th><th>Motivo</th><th>Classificação</th><th>Descrição</th></tr>${oc.map(o => `<tr><td>${o.data.split('-').reverse().join('/')}</td><td>${esc(o.turma)}</td><td>${esc(o.tipo)}</td><td>${esc(o.assunto)}</td><td>${esc(o.motivo)}</td><td>${esc(o.classificacao)}</td><td>${esc(o.descricao)}</td></tr>`).join('')}</table></div></div>`;
 }
 let TUR = [];
 function novoFeedback() {
