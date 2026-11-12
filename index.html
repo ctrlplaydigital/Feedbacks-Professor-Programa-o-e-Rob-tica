@@ -201,8 +201,9 @@ function ocDetail(id, list, comProf) {
   return `<div class="grid" id="${id}f"><div>${lab('Data de')}<input type="date" data-k="de" onchange="ocF('${id}')"></div><div>${lab('Data até')}<input type="date" data-k="ate" onchange="ocF('${id}')"></div>
   ${comProf ? sel('professor', 'Professor') : ''}${sel('turma', 'Turma')}${sel('tipo', 'Tipo')}${sel('assunto', 'Assunto')}${sel('motivo', 'Motivo')}${sel('classificacao', 'Classificação')}
   <div>${lab('Descrição contém')}<input type="search" data-k="q" placeholder="Buscar no texto" oninput="ocF('${id}')"></div></div>
-  <p class="hint" id="${id}c" style="margin:14px 0 8px"></p><div class="tw det"><table id="${id}t"></table></div>`;
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 8px"><span class="hint" id="${id}c" style="margin:0"></span><button type="button" style="padding:6px 14px" onclick="ocClear('${id}')">Limpar filtros</button></div><div class="tw det"><table id="${id}t"></table></div>`;
 }
+function ocClear(id) { document.querySelectorAll('#' + id + 'f [data-k]').forEach(e => e.value = ''); ocF(id); }
 function ocF(id) {
   const el = $('#' + id + 't'); if (!el) return;
   const { list, comProf } = OCL[id], f = {};
@@ -232,7 +233,8 @@ function ocSchool() {
   if (!oc.length) return `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">Nenhuma ocorrência registrada para os professores cadastrados.</span></div>`;
   const meses = [...new Set(oc.map(o => o.mes))].sort(), profs = [...new Set(oc.map(o => o.professor))].sort();
   return `<div class="row" style="align-items:flex-start"><div class="card" style="flex:1 1 320px"><h3>Ocorrências da escola mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => { const l = oc.filter(o => o.mes === m); return `<tr><td>${MES(m)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os meses', oc)}</table></div></div>
-  <div class="card" style="flex:1 1 320px"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div></div>
+  <div class="card" style="flex:1 1 320px"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div>
+  <div style="flex:1 1 240px;max-width:340px">${chart('Ocorrências da escola por mês', meses.map(m => oc.filter(o => o.mes === m).length), meses.map(MES))}</div></div>
   <div class="card"><h3>Detalhes das ocorrências da escola</h3>${ocDetail('ocs', oc, true)}</div>`;
 }
 let TUR = [];
