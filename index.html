@@ -9,6 +9,7 @@
 body{margin:0;background:var(--fundo);color:var(--tinta);font:400 15px/1.5 'Poppins',system-ui,-apple-system,'Segoe UI',sans-serif}
 .topo{background:#fff;box-shadow:0 2px 14px rgba(43,42,116,.08);border-top:4px solid var(--acento)}
 .topo-in{max-width:1000px;margin:0 auto;padding:14px 16px;font-weight:600;color:var(--marinho);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.marca{display:flex;align-items:center;gap:14px}.topact{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}.topo button{padding:8px 16px}.topo button.p{padding:8px 18px}.topo-in{flex-wrap:wrap}
 .topo img{display:block;height:32px;width:auto}
 main{max-width:1000px;margin:0 auto;padding:32px 16px 72px}
 .hero{background:var(--marinho-fundo);color:#fff;border-radius:16px;padding:28px 32px;margin:0 0 24px;position:relative;overflow:hidden}
@@ -50,7 +51,7 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 #msg{z-index:60;position:fixed;bottom:16px;right:16px;max-width:340px;background:var(--marinho-fundo);color:#fff;padding:12px 16px;border-radius:10px;box-shadow:var(--sombra);display:none}
 @media (max-width:600px){.hero{padding:22px 20px}h1{font-size:1.4rem}section{padding:18px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.sp{animation-duration:2s}}
-</style></head><body><header class="topo"><div class="topo-in"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"><span>Feedback de Professores</span></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
+</style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"><span>Feedback de Professores</span></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
 const API_URL = 'https://script.google.com/macros/s/AKfycbxPKzCtolgjBV97IomdWRIeLYwIKzmqoUc4UnJGPsfkyP5rfnQd_JcTPdM3hIofKsWC/exec';
@@ -75,6 +76,7 @@ const nomeTurma = t => `#${t.turmaId} - ${t.modulo} / ${t.mesInicio} / ${String(
 const nn = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 const clsOf = o => { const c = nn(o.classificacao); return c.startsWith('grav') ? 'graves' : c.startsWith('med') ? 'medias' : 'outras'; };
 const prevMes = m => { const [y, n] = m.split('-').map(Number), d = new Date(y, n - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+const topo = h => { $('#topact').innerHTML = h; };
 const hero = (t, s) => `<div class="hero"><h1>${t}</h1><p class="sub">${s || ''}</p></div>`;
 const tip = t => `<span class="tip" tabindex="0" role="img" aria-label="${esc(t)}">i<span class="tt" aria-hidden="true">${esc(t)}</span></span>`;
 const lab = (t, d) => `<label>${t}${d ? tip(d) : ''}</label>`;
@@ -115,17 +117,20 @@ const delta = (a, b, lowGood) => { if (b === undefined) return ''; const d = +(a
 
 /* ===== Telas ===== */
 async function home() {
+  topo('');
   app.innerHTML = hero('Professores', 'Feedback mensal dos professores') + '<p class="hint">Carregando…</p>';
   const ts = await call('teachers');
-  app.innerHTML = `${hero('Professores', 'Feedback mensal dos professores')}<div class="acts"><button onclick="run(school)">Visão da escola</button><button class="p" onclick="addForm()">+ Adicionar professor</button></div>
+  topo('<button onclick="run(school)">Visão da escola</button><button class="p" onclick="addForm()">+ Adicionar professor</button>');
+  app.innerHTML = `${hero('Professores', 'Feedback mensal dos professores')}
   <div class="row">${ts.map(t => `<div class="card t" onclick="run(()=>teacher('${t.id}'))"><h3>${esc(t.nome)}</h3><span class="mu">${esc(t.email)}</span><div style="margin-top:8px;font-size:13px">${t.ultimoMes ? `Último feedback: <b>${MES(t.ultimoMes)}</b> <span class="mu">(lançado em ${new Date(t.ultimoEm).toLocaleDateString('pt-BR')})</span>` : '<span class="mu">Nenhum feedback lançado</span>'}</div></div>`).join('') || '<div class="card mu" style="text-align:center;padding:30px;flex-basis:100%">Nenhum professor foi cadastrado até o momento.</div>'}</div>`;
 }
 function addForm() {
-  app.innerHTML = `<button class="back" onclick="run(home)">← Cancelar</button>${hero('Adicionar professor', 'Cadastre quem vai receber os feedbacks')}
+  app.innerHTML = `${hero('Adicionar professor', 'Cadastre quem vai receber os feedbacks')}
   <section><h2>Dados do professor</h2>
   <div class="grid"><div>${lab('Nome', 'Escreva exatamente como o nome aparece nas turmas do sistema da escola. É por ele que o sistema liga as turmas ao professor.')}<input id="n" placeholder="Ex.: Gabrielle Siqueira"></div>
   <div>${lab('E-mail', 'Opcional. Serve só para identificar o professor na lista.')}<input id="e" placeholder="professor@escola.com.br"></div></div>
   <p style="margin:20px 0 0"><button class="p" onclick="run(addT)">Adicionar professor</button></p></section>`;
+  topo('<button onclick="run(home)">← Cancelar</button>');
   $('#n').focus();
 }
 async function addT() {
@@ -149,7 +154,7 @@ async function school() {
   SCH = { ts, fs, agg, ocs, ocErro: S.ocErro };
   const L = agg[agg.length - 1], P = agg[agg.length - 2], pn = S.pontos.filter(p => ids.has(p.teacherId));
   const card = (n, v, d) => `<div class="card"><div class="mu">${n}</div><div class="big">${v}</div>${d}</div>`;
-  app.innerHTML = `<button class="back" onclick="run(home)">← Professores</button>${hero('Visão da escola', 'Todos os professores somados, mês a mês')}
+  app.innerHTML = `${hero('Visão da escola', 'Todos os professores somados, mês a mês')}
   ${!L ? '<div class="card mu" style="text-align:center;padding:30px">Ainda não há feedbacks lançados.</div>' : `
   <div class="mu">Mês mais recente: ${MES(L.m)} · ${L.n} de ${ts.length} professores com feedback${P ? ' (comparado a ' + MES(P.m) + ')' : ''}</div>
   <div class="row">${card('Churn médio da escola', L.ch + '%', delta(L.ch, P && P.ch, 1))}${card('Turmas', L.tu, delta(L.tu, P && P.tu))}${card('Alunos', L.al, delta(L.al, P && P.al))}${card('Pontos melhorados', pn.filter(p => p.status === 'melhorado').length + '/' + pn.length, '<span class="mu">' + pn.filter(p => p.status === 'pendente').length + ' pendentes</span>')}</div>
@@ -157,6 +162,7 @@ async function school() {
   <div class="card"><h3>Escola mês a mês</h3>${S.ocErro ? '<div class="dn" style="font-size:.8125rem;margin-bottom:6px">Ocorrências: ' + esc(S.ocErro) + '</div>' : ''}<div class="hint">Churn = média ponderada pelo número de alunos de cada professor. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
   <div class="tw"><table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td><td>${a.oc} <span class="mu">(${a.gr} graves)</span></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Detalhe por professor</h3><select id="sm" onchange="schoolMes(this.value)">${[...meses].reverse().map(m => `<option value="${m}">${MES(m)}</option>`).join('')}</select><div id="bd"></div></div>`}${ocSchool()}`;
+  topo('<button onclick="run(home)">← Professores</button>');
   if (L) schoolMes(L.m);
 }
 const ocTxt = (m, nm) => { const k = SCH.ocs.filter(o => o.mes === m && nn(o.professor) === nn(nm)); return k.length + ' <span class="mu">(' + k.filter(o => clsOf(o) === 'graves').length + ' graves)</span>'; };
@@ -167,11 +173,12 @@ function schoolMes(m) {
 
 let D;
 async function teacher(id) {
-  D = await call('teacher', { id }); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
+  D = await call('teacher', { id });
+  topo('<button onclick="run(home)">← Professores</button><button class="p" onclick="novoFeedback()">Novo feedback do mês</button>'); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
   const tur = D.turmas.filter(t => L && t.feedbackId === L.id), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
   const card = (n, k, lg) => `<div class="card"><div class="mu">${n}</div><div class="big">${L ? L[k] + (k === 'churn' ? '%' : '') : '–'}</div>${L ? delta(+L[k], P && +P[k], lg) : ''}</div>`;
-  app.innerHTML = `<button class="back" onclick="run(home)">← Professores</button>${hero(esc(D.teacher.nome), esc(D.teacher.email) || 'Professor')}
-  <div class="acts"><button class="p" onclick="novoFeedback()">Novo feedback do mês</button></div>
+  app.innerHTML = `${hero(esc(D.teacher.nome), esc(D.teacher.email) || 'Professor')}
+  
   ${L ? `<div class="mu">Último feedback: ${MES(L.mes)} (comparado a ${P ? MES(P.mes) : 'nenhum mês anterior'})</div>` : '<div class="mu">Sem feedbacks ainda.</div>'}
   <div class="row">${card('Churn','churn',1)}${card('Turmas','turmas')}${card('Alunos','alunos')}<div class="card"><div class="mu">Pontos melhorados</div><div class="big">${ok.length}/${D.pontos.length}</div><span class="mu">${pend.length} pendentes</span></div></div>
   <div class="row">${chart('Churn (%)', fs.map(f => +f.churn), fs.map(f => MES(f.mes)))}${chart('Turmas', fs.map(f => +f.turmas), fs.map(f => MES(f.mes)))}${chart('Alunos', fs.map(f => +f.alunos), fs.map(f => MES(f.mes)))}</div>
@@ -240,7 +247,7 @@ function ocSchool() {
 let TUR = [];
 function novoFeedback() {
   const pend = D.pontos.filter(p => p.status === 'pendente'), now = new Date().toISOString().slice(0, 7); TUR = [];
-  app.innerHTML = `<button class="back" onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>${hero('Novo feedback', esc(D.teacher.nome))}
+  app.innerHTML = `${hero('Novo feedback', esc(D.teacher.nome))}
   <section><h2>1. Dados do mês</h2><p class="hint">Escolha o mês do feedback e informe o churn do professor.</p>
   <div class="grid"><div>${lab('Mês', 'Mês a que este feedback se refere. Se já existir um feedback deste mês, ele será substituído, e o sistema pede confirmação antes.')}<input id="mes" type="month" value="${now}"></div>
   <div>${lab('Churn (%)', 'Percentual de evasão dos alunos deste professor. Pode digitar com vírgula ou ponto, por exemplo 4,4.')}<input id="ch" inputmode="decimal" placeholder="ex.: 4,4 ou 4.4"></div></div></section>
@@ -254,6 +261,7 @@ function novoFeedback() {
   <p style="margin:12px 0 0"><button type="button" onclick="addPonto()">+ Adicionar ponto</button></p></section>
   <section><h2>4. Observações</h2>${lab('Observações do mês', 'Anotações livres sobre este feedback. Aparecem no histórico do professor.')}<textarea id="ob" rows="3" placeholder="Opcional"></textarea></section>
   <button class="p" onclick="run(save)">Salvar feedback</button>`;
+  topo(`<button onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>`);
   addPonto(false);
 }
 function addPonto(foco) {
