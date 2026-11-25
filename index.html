@@ -55,7 +55,7 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 </style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbx2LrRXwEWBanBU7bzOue_Rfu-bailCwPbVo9BX2KTj_Umy3c8-FZZEmgj3uFfJtjAx/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyusB-zhzRfbHBJ-ePc-1XaA6PGiNjb-E_8_TAQyRxF4l_DTpTWL6G30KudX29u02BC/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -67,7 +67,7 @@ function rawCall(action, data) {
 
 /* Indicador de carregamento global: aparece em toda chamada ao backend e bloqueia cliques duplicados */
 let pend = 0;
-const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
+const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', savePesquisa: 'Salvando pesquisa…', deletePesquisa: 'Excluindo pesquisa…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
 async function call(action, data) {
   pend++; $('#lt').textContent = MSG[action] || 'Carregando…'; $('#ld').classList.add('on');
   try { return await rawCall(action, data); }
@@ -204,7 +204,7 @@ function schoolMes(m) {
 
 let D;
 async function teacher(id) {
-  D = await call('teacher', { id }); D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f));
+  D = await call('teacher', { id }); D.pesquisas = D.pesquisas || []; D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f));
   topo('<button onclick="run(home)">← Professores</button><button class="p" onclick="novoFeedback()">Novo feedback do mês</button>'); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
   const tur = D.turmas.filter(t => L && t.feedbackId === L.id), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
   const card = (n, k, lg) => { const v = L ? L[k] : null, p = P ? P[k] : null; return `<div class="card"><div class="mu">${n}</div><div class="big">${L ? (v == null ? '—' : v + (k === 'ch' ? '%' : '')) : '–'}</div>${L && v != null && p != null ? delta(+v, +p, lg) : ''}${k === 'ch' && L && v == null ? '<div class="mu">sem base do mês anterior</div>' : ''}</div>`; };
@@ -218,7 +218,7 @@ async function teacher(id) {
   <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>${esc(nomeTurma(t))}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
   <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${pct(f.ch)} ${dlt(f.ch, p && p.ch, 1)}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · resolvido em ' + MES(p.mesResolvido) : ''})</span></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
-  ${ocBlock()}`;
+  ${pesqBlock()}${ocBlock()}`;
 }
 
 async function delF(id, m) {
@@ -275,6 +275,58 @@ function ocSchool() {
   <div style="flex:1 1 240px;max-width:340px">${chart('Ocorrências da escola por mês', meses.map(m => oc.filter(o => o.mes === m).length), meses.map(MES))}</div></div>
   <div class="card"><h3>Detalhes das ocorrências da escola</h3>${ocDetail('ocs', oc, true)}</div>`;
 }
+/* ===== Pesquisa de satisfação (semestral) ===== */
+const PQ = [['aula', 'Satisfação com a aula', 1], ['professor', 'Satisfação com o professor', 1], ['aprendizagem', 'Satisfação com a aprendizagem', 1], ['portal', 'Uso do portal', 0], ['incentivo', 'Incentivo à avaliação no portal', 0]]; // 1 = média de 1 a 5; 0 = porcentagem
+const pLab = p => p.semestre + 'º sem/' + p.ano, pShort = p => 'S' + p.semestre + '/' + String(p.ano).slice(2);
+const pVal = (p, k) => { const v = +(+p[k]).toFixed(2); return PQ.find(x => x[0] === k)[2] ? v + ' / 5' : v + '%'; };
+function pesqFields(p) {
+  p = p || {}; const ano = p.ano || new Date().getFullYear(), sem = +p.semestre || (new Date().getMonth() < 6 ? 1 : 2);
+  const f = (id, n, d, v, ph) => `<div>${lab(n, d)}<input id="${id}" inputmode="decimal" value="${v ?? ''}" placeholder="${ph}"></div>`;
+  return `<input type="hidden" id="pq_id" value="${p.id || ''}"><div class="grid">
+  <div>${lab('Ano', 'Ano em que a pesquisa foi aplicada.')}<input id="pq_ano" type="number" min="2000" max="2100" value="${ano}"></div>
+  <div>${lab('Semestre', 'Semestre a que a pesquisa se refere. O mês em que você lança não importa: pesquisas só são comparadas entre si.')}<select id="pq_sem"><option value="1" ${sem === 1 ? 'selected' : ''}>1º semestre</option><option value="2" ${sem === 2 ? 'selected' : ''}>2º semestre</option></select></div>
+  ${f('pq_aula', 'Satisfação com a aula', 'Média de 1 a 5 da pesquisa. Pode usar vírgula ou ponto.', p.aula, 'ex.: 4,6')}
+  ${f('pq_prof', 'Satisfação com o professor', 'Média de 1 a 5 da pesquisa. Pode usar vírgula ou ponto.', p.professor, 'ex.: 4,8')}
+  ${f('pq_apr', 'Satisfação com a aprendizagem', 'Média de 1 a 5 da pesquisa. Pode usar vírgula ou ponto.', p.aprendizagem, 'ex.: 4,5')}
+  ${f('pq_portal', 'Uso do portal (%)', 'Porcentagem de 0 a 100 de alunos que usam o portal.', p.portal, 'ex.: 85')}
+  ${f('pq_inc', 'Incentivo à avaliação no portal (%)', 'Porcentagem de 0 a 100 que indica o quanto o professor incentiva a avaliação no portal.', p.incentivo, 'ex.: 70')}</div>`;
+}
+function readPesq() {
+  const num = id => parseFloat(String($('#' + id).value).trim().replace(',', '.'));
+  const p = { id: $('#pq_id').value, ano: parseInt($('#pq_ano').value, 10), semestre: parseInt($('#pq_sem').value, 10), aula: num('pq_aula'), professor: num('pq_prof'), aprendizagem: num('pq_apr'), portal: num('pq_portal'), incentivo: num('pq_inc') };
+  if (!(p.ano >= 2000 && p.ano <= 2100)) throw new Error('Informe o ano da pesquisa');
+  PQ.forEach(([k, n, nota]) => { const v = p[k === 'professor' ? 'professor' : k]; if (isNaN(v) || (nota ? v < 1 || v > 5 : v < 0 || v > 100)) throw new Error(n + (nota ? ' deve ser uma média entre 1 e 5' : ' deve ser uma porcentagem entre 0 e 100')); });
+  const dup = D.pesquisas.find(x => String(x.ano) === String(p.ano) && +x.semestre === p.semestre && x.id !== p.id);
+  if (dup && !confirm('Já existe a pesquisa do ' + pLab(dup) + ' para este professor.\n\nSe salvar, ela será substituída por esta. Tem certeza?')) return null;
+  return p;
+}
+function pesqLoad(id) {
+  const p = D.pesquisas.find(x => x.id === id); $('#pq_on').checked = true; $('#pqb').hidden = false;
+  $('#pqf').innerHTML = pesqFields(p); $('#pqf').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function pesqEdit(id) {
+  const p = D.pesquisas.find(x => x.id === id);
+  app.innerHTML = `${hero('Editar pesquisa de satisfação', esc(D.teacher.nome) + ' · ' + pLab(p))}<section><h2>Dados da pesquisa</h2>${pesqFields(p)}<p style="margin:20px 0 0"><button class="p" onclick="run(savePesq)">Salvar pesquisa</button></p></section>`;
+  topo(`<button onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>`);
+}
+async function savePesq() {
+  const p = readPesq(); if (!p) return;
+  await call('savePesquisa', { teacherId: D.teacher.id, pesquisa: p }); toast('Pesquisa salva'); await teacher(D.teacher.id);
+}
+async function delPesq(id) {
+  const p = D.pesquisas.find(x => x.id === id);
+  if (!confirm('Excluir a pesquisa do ' + pLab(p) + '? Essa ação não pode ser desfeita.')) return;
+  await call('deletePesquisa', { id }); toast('Pesquisa excluída'); await teacher(D.teacher.id);
+}
+function pesqBlock() {
+  const ps = D.pesquisas || [];
+  if (!ps.length) return `<div class="card"><h3>Pesquisa de satisfação</h3><span class="mu">Nenhuma pesquisa registrada. Adicione uma ao criar um novo feedback.</span></div>`;
+  const L = ps[ps.length - 1], P = ps[ps.length - 2];
+  return `<div class="card"><h3>Pesquisa de satisfação</h3><div class="mu">Pesquisa mais recente: ${pLab(L)}${P ? ' (comparada a ' + pLab(P) + ')' : ''}</div>
+  <div class="row">${PQ.map(([k, n]) => `<div class="card"><div class="mu">${n}</div><div class="big">${pVal(L, k)}</div>${P ? delta(+L[k], +P[k]) : ''}</div>`).join('')}</div></div>
+  <div class="row">${PQ.map(([k, n]) => chart(n, ps.map(p => +(+p[k]).toFixed(2)), ps.map(pShort))).join('')}</div>
+  <div class="card"><h3>Pesquisas realizadas</h3><div class="tw"><table><tr><th>Período</th>${PQ.map(x => `<th>${x[1]}</th>`).join('')}<th></th></tr>${[...ps].reverse().map((p, i, a) => { const o = a[i + 1]; return `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pVal(p, k)} ${o ? delta(+p[k], +o[k]) : ''}</td>`).join('')}<td style="text-align:right"><button onclick="pesqEdit('${p.id}')">Editar</button> <button class="dg" onclick="run(()=>delPesq('${p.id}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>`;
+}
 let TUR = [];
 function novoFeedback() {
   const pend = D.pontos.filter(p => p.status === 'pendente'), now = new Date().toISOString().slice(0, 7); TUR = [];
@@ -291,7 +343,11 @@ function novoFeedback() {
   ${pend.map(p => `<div class="act"><label class="ck"><input type="checkbox" class="mel" value="${p.id}"><span>Melhorou: ${esc(p.texto)} <span class="mu">(${MES(p.mesCriado)})</span></span></label></div>`).join('') || '<p class="hint">Nenhum ponto pendente.</p>'}
   <div style="height:14px"></div>${lab('Novos pontos a melhorar', 'Escreva um ponto por campo. Use o botão abaixo, ou Enter, para criar mais campos.')}<div id="nv"></div>
   <p style="margin:12px 0 0"><button type="button" onclick="addPonto()">+ Adicionar ponto</button></p></section>
-  <section><h2>4. Observações</h2>${lab('Observações do mês', 'Anotações livres sobre este feedback. Aparecem no histórico do professor.')}<textarea id="ob" rows="3" placeholder="Opcional"></textarea></section>
+  <section><h2>4. Pesquisa de satisfação</h2><p class="hint">Semestral. Marque só quando houver uma pesquisa nova (ou para corrigir uma anterior). O mês deste feedback não importa: o que vale é o ano e o semestre.</p>
+  <div class="act"><label class="ck"><input type="checkbox" id="pq_on" onchange="$('#pqb').hidden=!this.checked"><span>Registrar uma pesquisa de satisfação neste feedback</span></label></div>
+  <div id="pqb" hidden style="margin-top:16px"><div id="pqf">${pesqFields()}</div></div>
+  ${D.pesquisas.length ? `<h3 style="margin:20px 0 8px">Pesquisas anteriores</h3><div class="tw"><table><tr><th>Período</th>${PQ.map(x => `<th>${x[1]}</th>`).join('')}<th></th></tr>${[...D.pesquisas].reverse().map(p => `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pVal(p, k)}</td>`).join('')}<td style="text-align:right"><button type="button" onclick="pesqLoad('${p.id}')">Editar</button></td></tr>`).join('')}</table></div>` : ''}</section>
+  <section><h2>5. Observações</h2>${lab('Observações do mês', 'Anotações livres sobre este feedback. Aparecem no histórico do professor.')}<textarea id="ob" rows="3" placeholder="Opcional"></textarea></section>
   <button class="p" onclick="run(save)">Salvar feedback</button>`;
   topo(`<button onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>`);
   addPonto(false); chPrev();
@@ -318,9 +374,11 @@ async function save() {
   const ca = parseInt($('#ca').value, 10);
   if (!$('#mes').value || isNaN(ca) || ca < 0) throw new Error('Preencha o mês e os cancelamentos (use 0 se não houve)');
   if (!TUR.length) throw new Error('Cole o HTML com as turmas do professor');
+  const pesquisa = $('#pq_on').checked ? readPesq() : null;
+  if ($('#pq_on').checked && !pesquisa) return;
   const ja = D.feedbacks.find(f => f.mes === $('#mes').value);
   if (ja && !confirm('Você já tem um feedback de ' + MES(ja.mes) + ' para este professor.\n\nSe salvar, ele será substituído por este novo (turmas, cancelamentos, observações e pontos criados naquele mês).\n\nTem certeza?')) return;
-  await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, cancelamentos: ca, obs: $('#ob').value, turmas: TUR,
+  await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, pesquisa, cancelamentos: ca, obs: $('#ob').value, turmas: TUR,
     melhorados: [...document.querySelectorAll('.mel:checked')].map(c => c.value), novos: [...document.querySelectorAll('.nv')].map(i => i.value.trim()).filter(Boolean) });
   toast('Feedback salvo'); teacher(D.teacher.id);
 }
