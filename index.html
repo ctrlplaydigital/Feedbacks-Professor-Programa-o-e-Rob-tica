@@ -44,6 +44,9 @@ th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px}.week div b{display:block;text-align:center;color:var(--marinho)}
 .det td{white-space:normal;min-width:90px;vertical-align:top}.grid select{width:100%;min-width:0;text-overflow:ellipsis}
 .lk{cursor:pointer}.lk:hover td{background:#f4f5fb}.ic{padding:6px 9px;line-height:0}.ic svg{width:18px;height:18px}button.dg{border-color:var(--erro);color:var(--erro)}button.dg:hover{background:#fde2e7}
+.g3,.g2{display:grid;gap:16px;margin-bottom:16px}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}.g3>.card,.g2>.card{margin:0}
+@media (max-width:700px){.g3,.g2{grid-template-columns:1fr}}
+.cmp th,.cmp td{white-space:normal}.cmp th{vertical-align:bottom}
 .pill{display:inline-block;padding:2px 11px;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap}.pg{background:#fde2e7;color:#b0102a}.pm{background:var(--media-bg);color:var(--media)}.pl{background:var(--leve-bg);color:var(--leve)}.po{background:#e8e9f1;color:var(--suave)}
 tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weight:600;color:var(--marinho);word-break:break-word}.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
 .t{cursor:pointer;transition:border-color .15s,transform .15s}.t:hover{border-color:var(--acento);transform:translateY(-1px)}
@@ -55,7 +58,7 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 </style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbyusB-zhzRfbHBJ-ePc-1XaA6PGiNjb-E_8_TAQyRxF4l_DTpTWL6G30KudX29u02BC/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzx61AU17J2aVDkToA-geGEe5jszHtKDfRVc0G8szapZSuEdochSUZRQbaqPyJ4R329/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -67,7 +70,7 @@ function rawCall(action, data) {
 
 /* Indicador de carregamento global: aparece em toda chamada ao backend e bloqueia cliques duplicados */
 let pend = 0;
-const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', savePesquisa: 'Salvando pesquisa…', deletePesquisa: 'Excluindo pesquisa…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
+const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', updatePonto: 'Salvando ponto…', deletePonto: 'Excluindo ponto…', savePesquisa: 'Salvando pesquisa…', deletePesquisa: 'Excluindo pesquisa…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
 async function call(action, data) {
   pend++; $('#lt').textContent = MSG[action] || 'Carregando…'; $('#ld').classList.add('on');
   try { return await rawCall(action, data); }
@@ -75,7 +78,7 @@ async function call(action, data) {
 }
 const nomeTurma = t => `#${t.turmaId} - ${t.modulo} / ${t.mesInicio} / ${String(t.dia).split('-')[0].toUpperCase()} / ${t.horario} / ${t.professor}`;
 const nn = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
-const clsOf = o => { const c = nn(o.classificacao); return c.startsWith('grav') ? 'graves' : c.startsWith('med') ? 'medias' : 'outras'; };
+const clsOf = o => { const c = nn(o.classificacao); return c.startsWith('grav') ? 'graves' : c.startsWith('med') ? 'medias' : 'leves'; };
 const prevMes = m => { const [y, n] = m.split('-').map(Number), d = new Date(y, n - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 const topo = h => { $('#topact').innerHTML = h; };
 /* Churn = cancelamentos do mês ÷ alunos do mês anterior (feedbacks antigos, sem cancelamentos, usam o churn que foi digitado) */
@@ -204,7 +207,7 @@ function schoolMes(m) {
 
 let D;
 async function teacher(id) {
-  D = await call('teacher', { id }); D.pesquisas = D.pesquisas || []; D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f));
+  D = await call('teacher', { id }); D.pesquisas = (D.pesquisas || []).sort((a, b) => (+a.ano - +b.ano) || (+a.semestre - +b.semestre)); // cronológico; as listas exibem do mais recente para o mais antigo D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f));
   topo('<button onclick="run(home)">← Professores</button><button class="p" onclick="novoFeedback()">Novo feedback do mês</button>'); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
   const tur = D.turmas.filter(t => L && t.feedbackId === L.id), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
   const card = (n, k, lg) => { const v = L ? L[k] : null, p = P ? P[k] : null; return `<div class="card"><div class="mu">${n}</div><div class="big">${L ? (v == null ? '—' : v + (k === 'ch' ? '%' : '')) : '–'}</div>${L && v != null && p != null ? delta(+v, +p, lg) : ''}${k === 'ch' && L && v == null ? '<div class="mu">sem base do mês anterior</div>' : ''}</div>`; };
@@ -217,18 +220,18 @@ async function teacher(id) {
   <p><button onclick="$('#tt').hidden=!$('#tt').hidden" style="margin-bottom:10px">Mostrar/ocultar tabela de turmas</button></p>
   <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>${esc(nomeTurma(t))}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
   <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${pct(f.ch)} ${dlt(f.ch, p && p.ch, 1)}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
-  <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · resolvido em ' + MES(p.mesResolvido) : ''})</span></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
+  <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha)"><div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · melhorou em ' + MES(p.mesResolvido) : ''})</span></div><div style="white-space:nowrap"><button class="ic" title="Editar ponto" aria-label="Editar ponto" onclick="pontoEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir ponto" aria-label="Excluir ponto" onclick="run(()=>delPonto('${p.id}'))">${ICO.rm}</button></div></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
   ${pesqBlock()}${ocBlock()}`;
 }
 
 async function delF(id, m) {
-  if (!confirm('Excluir o feedback de ' + m + '? Turmas e pontos criados nesse mês também serão removidos.')) return;
+  if (!confirm('Excluir o feedback de ' + m + '? As turmas deste feedback também serão removidas. Os pontos de melhoria são mantidos.')) return;
   await call('deleteFeedback', { id }); toast('Feedback excluído'); teacher(D.teacher.id);
 }
 const pill = c => { const x = nn(c), k = x.startsWith('grav') ? 'pg' : x.startsWith('med') ? 'pm' : x.startsWith('lev') ? 'pl' : 'po'; return `<span class="pill ${k}">${esc(c)}</span>`; };
 const cnt = (l, k) => l.filter(o => !k || clsOf(o) === k).length;
-const totRow = (nome, l) => `<tr class="tot"><td>${nome}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td>${l.length}</td></tr>`;
-const ocHead = n => `<tr><th>${n}</th><th>Graves</th><th>Médias</th><th>Outras</th><th>Total</th></tr>`;
+const totRow = (nome, l) => `<tr class="tot"><td>${nome}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td>${l.length}</td></tr>`;
+const ocHead = n => `<tr><th>${n}</th><th>Graves</th><th>Médias</th><th>Leves</th><th>Total</th></tr>`;
 /* Tabela de detalhes com filtros dinâmicos (usada na ficha do professor e na visão da escola) */
 let OCL = {};
 function ocDetail(id, list, comProf) {
@@ -259,8 +262,8 @@ function ocBlock() {
   const c = (m, k) => oc.filter(o => o.mes === m && (!k || clsOf(o) === k)).length;
   const card = (n, k) => `<div class="card"><div class="mu">${n}</div><div class="big">${c(U, k)}</div>${delta(c(U, k), c(A, k), 1)}</div>`;
   return `<div class="card"><h3>Ocorrências</h3><div class="mu">Mês mais recente com ocorrências: ${MES(U)} (comparado a ${MES(A)})</div>
-  <div class="row">${card('Total', '')}${card('Graves', 'graves')}${card('Médias', 'medias')}${card('Outras', 'outras')}</div></div>
-  <div class="row" style="align-items:flex-start"><div class="card" style="flex:2 1 420px"><h3>Ocorrências mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => `<tr><td>${MES(m)}</td><td>${c(m, 'graves')}</td><td>${c(m, 'medias')}</td><td>${c(m, 'outras')}</td><td><b>${c(m)}</b></td></tr>`).join('')}${totRow('Todos os meses', oc)}</table></div></div>
+  <div class="row">${card('Total', '')}${card('Graves', 'graves')}${card('Médias', 'medias')}${card('Leves', 'leves')}</div></div>
+  <div class="row" style="align-items:flex-start"><div class="card" style="flex:2 1 420px"><h3>Ocorrências mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => `<tr><td>${MES(m)}</td><td>${c(m, 'graves')}</td><td>${c(m, 'medias')}</td><td>${c(m, 'leves')}</td><td><b>${c(m)}</b></td></tr>`).join('')}${totRow('Todos os meses', oc)}</table></div></div>
   <div style="flex:1 1 240px;max-width:340px">${chart('Ocorrências por mês', meses.map(m => c(m)), meses.map(MES))}</div></div>
   <div class="card"><h3>Detalhes das ocorrências</h3>${ocDetail('ocp', oc, false)}</div>`;
 }
@@ -270,13 +273,35 @@ function ocSchool() {
   if (SCH.ocErro) return `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">${esc(SCH.ocErro)}</span></div>`;
   if (!oc.length) return `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">Nenhuma ocorrência registrada para os professores cadastrados.</span></div>`;
   const meses = [...new Set(oc.map(o => o.mes))].sort(), profs = [...new Set(oc.map(o => o.professor))].sort();
-  return `<div class="row" style="align-items:flex-start"><div class="card" style="flex:1 1 320px"><h3>Ocorrências da escola mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => { const l = oc.filter(o => o.mes === m); return `<tr><td>${MES(m)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os meses', oc)}</table></div></div>
-  <div class="card" style="flex:1 1 320px"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'outras')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div>
+  return `<div class="row" style="align-items:flex-start"><div class="card" style="flex:1 1 320px"><h3>Ocorrências da escola mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => { const l = oc.filter(o => o.mes === m); return `<tr><td>${MES(m)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os meses', oc)}</table></div></div>
+  <div class="card" style="flex:1 1 320px"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div>
   <div style="flex:1 1 240px;max-width:340px">${chart('Ocorrências da escola por mês', meses.map(m => oc.filter(o => o.mes === m).length), meses.map(MES))}</div></div>
   <div class="card"><h3>Detalhes das ocorrências da escola</h3>${ocDetail('ocs', oc, true)}</div>`;
 }
+/* ===== Pontos de melhoria: editar / excluir ===== */
+function pontoEdit(id) {
+  const p = D.pontos.find(x => x.id === id), mel = p.status === 'melhorado', now = new Date().toISOString().slice(0, 7);
+  app.innerHTML = `${hero('Editar ponto de melhoria', esc(D.teacher.nome))}<section><h2>Ponto de melhoria</h2>
+  ${lab('Ponto a melhorar', 'Texto do ponto, como aparece na ficha e nos próximos feedbacks.')}<input id="pt_txt" value="${esc(p.texto)}">
+  <div class="grid" style="margin-top:16px"><div>${lab('Situação', 'Pendente continua aparecendo nos próximos feedbacks. Melhorado deixa de aparecer lá.')}<select id="pt_st" onchange="$('#pt_mes').disabled=this.value!=='melhorado'"><option value="pendente" ${mel ? '' : 'selected'}>Pendente</option><option value="melhorado" ${mel ? 'selected' : ''}>Melhorado</option></select></div>
+  <div>${lab('Mês em que melhorou')}<input id="pt_mes" type="month" value="${esc(p.mesResolvido) || now}" ${mel ? '' : 'disabled'}></div></div>
+  <p style="margin:20px 0 0"><button class="p" onclick="run(()=>savePonto('${id}'))">Salvar ponto</button></p></section>`;
+  topo(`<button onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>`);
+}
+async function savePonto(id) {
+  const st = $('#pt_st').value; if (!$('#pt_txt').value.trim()) throw new Error('Escreva o ponto de melhoria');
+  await call('updatePonto', { id, texto: $('#pt_txt').value, status: st, mesResolvido: $('#pt_mes').value });
+  toast('Ponto atualizado'); await teacher(D.teacher.id);
+}
+async function delPonto(id) {
+  if (!confirm('Excluir este ponto de melhoria? Essa ação não pode ser desfeita.')) return;
+  await call('deletePonto', { id }); toast('Ponto excluído'); await teacher(D.teacher.id);
+}
 /* ===== Pesquisa de satisfação (semestral) ===== */
 const PQ = [['aula', 'Satisfação com a aula', 1], ['professor', 'Satisfação com o professor', 1], ['aprendizagem', 'Satisfação com a aprendizagem', 1], ['portal', 'Uso do portal', 0], ['incentivo', 'Incentivo à avaliação no portal', 0]]; // 1 = média de 1 a 5; 0 = porcentagem
+const ICO = { ed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>', rm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>' };
+const pNum = (p, k) => { const v = +(+p[k]).toFixed(2); return PQ.find(x => x[0] === k)[2] ? v : v + '%'; };
+const pqHead = '<th>Período</th><th title="Satisfação com a aula">Aula <span class="mu">(1–5)</span></th><th title="Satisfação com o professor">Professor <span class="mu">(1–5)</span></th><th title="Satisfação com a aprendizagem">Aprendizagem <span class="mu">(1–5)</span></th><th title="Uso do portal">Uso do portal <span class="mu">(%)</span></th><th title="Incentivo à avaliação no portal">Incentivo <span class="mu">(%)</span></th>';
 const pLab = p => p.semestre + 'º sem/' + p.ano, pShort = p => 'S' + p.semestre + '/' + String(p.ano).slice(2);
 const pVal = (p, k) => { const v = +(+p[k]).toFixed(2); return PQ.find(x => x[0] === k)[2] ? v + ' / 5' : v + '%'; };
 function pesqFields(p) {
@@ -323,9 +348,9 @@ function pesqBlock() {
   if (!ps.length) return `<div class="card"><h3>Pesquisa de satisfação</h3><span class="mu">Nenhuma pesquisa registrada. Adicione uma ao criar um novo feedback.</span></div>`;
   const L = ps[ps.length - 1], P = ps[ps.length - 2];
   return `<div class="card"><h3>Pesquisa de satisfação</h3><div class="mu">Pesquisa mais recente: ${pLab(L)}${P ? ' (comparada a ' + pLab(P) + ')' : ''}</div>
-  <div class="row">${PQ.map(([k, n]) => `<div class="card"><div class="mu">${n}</div><div class="big">${pVal(L, k)}</div>${P ? delta(+L[k], +P[k]) : ''}</div>`).join('')}</div></div>
-  <div class="row">${PQ.map(([k, n]) => chart(n, ps.map(p => +(+p[k]).toFixed(2)), ps.map(pShort))).join('')}</div>
-  <div class="card"><h3>Pesquisas realizadas</h3><div class="tw"><table><tr><th>Período</th>${PQ.map(x => `<th>${x[1]}</th>`).join('')}<th></th></tr>${[...ps].reverse().map((p, i, a) => { const o = a[i + 1]; return `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pVal(p, k)} ${o ? delta(+p[k], +o[k]) : ''}</td>`).join('')}<td style="text-align:right"><button onclick="pesqEdit('${p.id}')">Editar</button> <button class="dg" onclick="run(()=>delPesq('${p.id}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>`;
+  ${(cd => `<div class="g3">${PQ.slice(0, 3).map(cd).join('')}</div><div class="g2" style="margin-bottom:0">${PQ.slice(3).map(cd).join('')}</div>`)(([k, n]) => `<div class="card"><div class="mu">${n}</div><div class="big">${pVal(L, k)}</div>${P ? delta(+L[k], +P[k]) : ''}</div>`)}</div>
+  ${(ch => `<div class="g3">${PQ.slice(0, 3).map(ch).join('')}</div><div class="g2">${PQ.slice(3).map(ch).join('')}</div>`)(([k, n]) => chart(n, ps.map(p => +(+p[k]).toFixed(2)), ps.map(pShort)))}
+  <div class="card"><h3>Pesquisas realizadas</h3><div class="tw cmp"><table><tr>${pqHead}<th></th></tr>${[...ps].reverse().map((p, i, a) => { const o = a[i + 1]; return `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pNum(p, k)} ${o ? delta(+p[k], +o[k]) : ''}</td>`).join('')}<td style="text-align:right"><button class="ic" title="Editar pesquisa" aria-label="Editar pesquisa" onclick="pesqEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir pesquisa" aria-label="Excluir pesquisa" onclick="run(()=>delPesq('${p.id}'))">${ICO.rm}</button></td></tr>`; }).join('')}</table></div></div>`;
 }
 let TUR = [];
 function novoFeedback() {
@@ -346,7 +371,7 @@ function novoFeedback() {
   <section><h2>4. Pesquisa de satisfação</h2><p class="hint">Semestral. Marque só quando houver uma pesquisa nova (ou para corrigir uma anterior). O mês deste feedback não importa: o que vale é o ano e o semestre.</p>
   <div class="act"><label class="ck"><input type="checkbox" id="pq_on" onchange="$('#pqb').hidden=!this.checked"><span>Registrar uma pesquisa de satisfação neste feedback</span></label></div>
   <div id="pqb" hidden style="margin-top:16px"><div id="pqf">${pesqFields()}</div></div>
-  ${D.pesquisas.length ? `<h3 style="margin:20px 0 8px">Pesquisas anteriores</h3><div class="tw"><table><tr><th>Período</th>${PQ.map(x => `<th>${x[1]}</th>`).join('')}<th></th></tr>${[...D.pesquisas].reverse().map(p => `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pVal(p, k)}</td>`).join('')}<td style="text-align:right"><button type="button" onclick="pesqLoad('${p.id}')">Editar</button></td></tr>`).join('')}</table></div>` : ''}</section>
+  ${D.pesquisas.length ? `<h3 style="margin:20px 0 8px">Pesquisas anteriores</h3><div class="tw cmp"><table><tr>${pqHead}<th></th></tr>${[...D.pesquisas].reverse().map(p => `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pNum(p, k)}</td>`).join('')}<td style="text-align:right"><button type="button" class="ic" title="Editar esta pesquisa" aria-label="Editar pesquisa" onclick="pesqLoad('${p.id}')">${ICO.ed}</button></td></tr>`).join('')}</table></div>` : ''}</section>
   <section><h2>5. Observações</h2>${lab('Observações do mês', 'Anotações livres sobre este feedback. Aparecem no histórico do professor.')}<textarea id="ob" rows="3" placeholder="Opcional"></textarea></section>
   <button class="p" onclick="run(save)">Salvar feedback</button>`;
   topo(`<button onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>`);
@@ -377,7 +402,7 @@ async function save() {
   const pesquisa = $('#pq_on').checked ? readPesq() : null;
   if ($('#pq_on').checked && !pesquisa) return;
   const ja = D.feedbacks.find(f => f.mes === $('#mes').value);
-  if (ja && !confirm('Você já tem um feedback de ' + MES(ja.mes) + ' para este professor.\n\nSe salvar, ele será substituído por este novo (turmas, cancelamentos, observações e pontos criados naquele mês).\n\nTem certeza?')) return;
+  if (ja && !confirm('Você já tem um feedback de ' + MES(ja.mes) + ' para este professor.\n\nSe salvar, ele será substituído por este novo (turmas, cancelamentos e observações). Os pontos de melhoria já lançados neste mês são mantidos, e os novos serão somados a eles.\n\nTem certeza?')) return;
   await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, pesquisa, cancelamentos: ca, obs: $('#ob').value, turmas: TUR,
     melhorados: [...document.querySelectorAll('.mel:checked')].map(c => c.value), novos: [...document.querySelectorAll('.nv')].map(i => i.value.trim()).filter(Boolean) });
   toast('Feedback salvo'); teacher(D.teacher.id);
