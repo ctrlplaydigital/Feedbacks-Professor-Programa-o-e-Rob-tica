@@ -43,6 +43,7 @@ th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px
 .big{font-size:1.75rem;font-weight:700;color:var(--marinho);line-height:1.2}.up{color:var(--leve);font-weight:600}.dn{color:var(--erro);font-weight:600}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px}.week div b{display:block;text-align:center;color:var(--marinho)}
 .det td{white-space:normal;min-width:90px;vertical-align:top}.grid select{width:100%;min-width:0;text-overflow:ellipsis}
+.lk{cursor:pointer}.lk:hover td{background:#f4f5fb}.ic{padding:6px 9px;line-height:0}.ic svg{width:18px;height:18px}button.dg{border-color:var(--erro);color:var(--erro)}button.dg:hover{background:#fde2e7}
 .pill{display:inline-block;padding:2px 11px;border-radius:999px;font-size:.75rem;font-weight:600;white-space:nowrap}.pg{background:#fde2e7;color:#b0102a}.pm{background:var(--media-bg);color:var(--media)}.pl{background:var(--leve-bg);color:var(--leve)}.po{background:#e8e9f1;color:var(--suave)}
 tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weight:600;color:var(--marinho);word-break:break-word}.cl{background:var(--fundo);border:1px solid var(--linha);border-left:4px solid var(--acento);border-radius:8px;padding:6px 8px;margin-top:6px;font-size:.75rem}
 .t{cursor:pointer;transition:border-color .15s,transform .15s}.t:hover{border-color:var(--acento);transform:translateY(-1px)}
@@ -51,10 +52,10 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 #msg{z-index:60;position:fixed;bottom:16px;right:16px;max-width:340px;background:var(--marinho-fundo);color:#fff;padding:12px 16px;border-radius:10px;box-shadow:var(--sombra);display:none}
 @media (max-width:600px){.hero{padding:22px 20px}h1{font-size:1.4rem}section{padding:18px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}.sp{animation-duration:2s}}
-</style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"><span>Feedback de Professores</span></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
+</style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxPKzCtolgjBV97IomdWRIeLYwIKzmqoUc4UnJGPsfkyP5rfnQd_JcTPdM3hIofKsWC/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbx2LrRXwEWBanBU7bzOue_Rfu-bailCwPbVo9BX2KTj_Umy3c8-FZZEmgj3uFfJtjAx/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -66,7 +67,7 @@ function rawCall(action, data) {
 
 /* Indicador de carregamento global: aparece em toda chamada ao backend e bloqueia cliques duplicados */
 let pend = 0;
-const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…' };
+const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
 async function call(action, data) {
   pend++; $('#lt').textContent = MSG[action] || 'Carregando…'; $('#ld').classList.add('on');
   try { return await rawCall(action, data); }
@@ -77,6 +78,14 @@ const nn = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const clsOf = o => { const c = nn(o.classificacao); return c.startsWith('grav') ? 'graves' : c.startsWith('med') ? 'medias' : 'outras'; };
 const prevMes = m => { const [y, n] = m.split('-').map(Number), d = new Date(y, n - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
 const topo = h => { $('#topact').innerHTML = h; };
+/* Churn = cancelamentos do mês ÷ alunos do mês anterior (feedbacks antigos, sem cancelamentos, usam o churn que foi digitado) */
+const fmt1 = n => +n.toFixed(1), vazio = c => c === '' || c === undefined || c === null;
+const pct = v => v == null ? '—' : v + '%', dlt = (a, b, lg) => a == null || b == null ? '' : delta(a, b, lg);
+function churnOf(fs, f) {
+  if (vazio(f.cancelamentos)) return vazio(f.churn) ? null : +f.churn;
+  const b = fs.find(x => x.mes === prevMes(f.mes));
+  return b && +b.alunos > 0 ? fmt1(+f.cancelamentos / +b.alunos * 100) : null;
+}
 const hero = (t, s) => `<div class="hero"><h1>${t}</h1><p class="sub">${s || ''}</p></div>`;
 const tip = t => `<span class="tip" tabindex="0" role="img" aria-label="${esc(t)}">i<span class="tt" aria-hidden="true">${esc(t)}</span></span>`;
 const lab = (t, d) => `<label>${t}${d ? tip(d) : ''}</label>`;
@@ -121,8 +130,27 @@ async function home() {
   app.innerHTML = hero('Professores', 'Feedback mensal dos professores') + '<p class="hint">Carregando…</p>';
   const ts = await call('teachers');
   topo('<button onclick="run(school)">Visão da escola</button><button class="p" onclick="addForm()">+ Adicionar professor</button>');
+  TS = ts;
+  const lapis = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
   app.innerHTML = `${hero('Professores', 'Feedback mensal dos professores')}
-  <div class="row">${ts.map(t => `<div class="card t" onclick="run(()=>teacher('${t.id}'))"><h3>${esc(t.nome)}</h3><span class="mu">${esc(t.email)}</span><div style="margin-top:8px;font-size:13px">${t.ultimoMes ? `Último feedback: <b>${MES(t.ultimoMes)}</b> <span class="mu">(lançado em ${new Date(t.ultimoEm).toLocaleDateString('pt-BR')})</span>` : '<span class="mu">Nenhum feedback lançado</span>'}</div></div>`).join('') || '<div class="card mu" style="text-align:center;padding:30px;flex-basis:100%">Nenhum professor foi cadastrado até o momento.</div>'}</div>`;
+  ${ts.length ? `<section style="padding:8px 16px"><div class="tw"><table><tr><th>Professor</th><th>E-mail</th><th>Último feedback</th><th></th></tr>${ts.map(t => `<tr class="lk" onclick="run(()=>teacher('${t.id}'))"><td><b style="color:var(--marinho)">${esc(t.nome)}</b></td><td>${esc(t.email) || '<span class="mu">—</span>'}</td><td>${t.ultimoMes ? `<b>${MES(t.ultimoMes)}</b> <span class="mu">(lançado em ${new Date(t.ultimoEm).toLocaleDateString('pt-BR')})</span>` : '<span class="mu">Nenhum feedback lançado</span>'}</td><td style="text-align:right"><button onclick="event.stopPropagation();run(()=>teacher('${t.id}'))">Feedbacks</button> <button class="ic" title="Editar professor" aria-label="Editar ${esc(t.nome)}" onclick="event.stopPropagation();editForm('${t.id}')">${lapis}</button></td></tr>`).join('')}</table></div></section>`
+  : '<div class="card mu" style="text-align:center;padding:30px">Nenhum professor foi cadastrado até o momento.</div>'}`;
+}
+let TS = [];
+function editForm(id) {
+  const t = TS.find(x => x.id === id);
+  app.innerHTML = `${hero('Editar professor', esc(t.nome))}
+  <section><h2>Dados do professor</h2>
+  <div class="grid"><div>${lab('Nome', 'Se mudar o nome, ele precisa continuar igual ao que aparece nas turmas do sistema da escola e na planilha de ocorrências, senão as turmas e ocorrências deixam de ser ligadas a este professor.')}<input id="n" value="${esc(t.nome)}"></div>
+  <div>${lab('E-mail')}<input id="e" value="${esc(t.email)}"></div></div>
+  <div class="acts" style="margin:20px 0 0;justify-content:space-between"><button class="p" onclick="run(()=>saveT('${id}'))">Salvar alterações</button><button class="dg" onclick="run(()=>delT('${id}'))">Excluir professor</button></div></section>`;
+  topo('<button onclick="run(home)">← Cancelar</button>');
+}
+async function saveT(id) { await call('updateTeacher', { id, nome: $('#n').value, email: $('#e').value }); toast('Professor atualizado'); await home(); }
+async function delT(id) {
+  const t = TS.find(x => x.id === id);
+  if (!confirm('Excluir ' + t.nome + '?\n\nTodos os feedbacks, turmas e pontos de melhoria deste professor também serão apagados. Essa ação não pode ser desfeita.')) return;
+  await call('deleteTeacher', { id }); toast('Professor excluído'); await home();
 }
 function addForm() {
   app.innerHTML = `${hero('Adicionar professor', 'Cadastre quem vai receber os feedbacks')}
@@ -147,9 +175,12 @@ async function school() {
   const nomes = new Set(ts.map(t => nn(t.nome))), ocs = (S.ocorrencias || []).filter(o => nomes.has(nn(o.professor)));
   const agg = meses.map(m => {
     const l = fs.filter(f => f.mes === m), al = l.reduce((s, f) => s + +f.alunos, 0), tu = l.reduce((s, f) => s + +f.turmas, 0);
-    const ch = al ? l.reduce((s, f) => s + +f.churn * +f.alunos, 0) / al : l.reduce((s, f) => s + +f.churn, 0) / (l.length || 1); // churn ponderado pelo nº de alunos
+    let num = 0, den = 0; // churn da escola = soma dos cancelamentos ÷ soma dos alunos do mês anterior (professores com feedback nos dois meses)
+    l.forEach(f => { if (vazio(f.cancelamentos)) return; const b = fs.find(x => x.teacherId === f.teacherId && x.mes === prevMes(m)); if (b && +b.alunos > 0) { num += +f.cancelamentos; den += +b.alunos; } });
+    let ch = den ? fmt1(num / den * 100) : null;
+    if (ch === null) { const lg = l.filter(f => vazio(f.cancelamentos) && !vazio(f.churn)), a2 = lg.reduce((s, f) => s + +f.alunos, 0); if (lg.length) ch = fmt1(a2 ? lg.reduce((s, f) => s + +f.churn * +f.alunos, 0) / a2 : lg.reduce((s, f) => s + +f.churn, 0) / lg.length); } // meses antigos, sem cancelamentos
     const oo = ocs.filter(o => o.mes === m);
-    return { m, n: l.length, tu, al, ch: +ch.toFixed(1), oc: oo.length, gr: oo.filter(o => clsOf(o) === 'graves').length };
+    return { m, n: l.length, tu, al, ch, ca: num, ba: den, oc: oo.length, gr: oo.filter(o => clsOf(o) === 'graves').length };
   });
   SCH = { ts, fs, agg, ocs, ocErro: S.ocErro };
   const L = agg[agg.length - 1], P = agg[agg.length - 2], pn = S.pontos.filter(p => ids.has(p.teacherId));
@@ -157,10 +188,10 @@ async function school() {
   app.innerHTML = `${hero('Visão da escola', 'Todos os professores somados, mês a mês')}
   ${!L ? '<div class="card mu" style="text-align:center;padding:30px">Ainda não há feedbacks lançados.</div>' : `
   <div class="mu">Mês mais recente: ${MES(L.m)} · ${L.n} de ${ts.length} professores com feedback${P ? ' (comparado a ' + MES(P.m) + ')' : ''}</div>
-  <div class="row">${card('Churn médio da escola', L.ch + '%', delta(L.ch, P && P.ch, 1))}${card('Turmas', L.tu, delta(L.tu, P && P.tu))}${card('Alunos', L.al, delta(L.al, P && P.al))}${card('Pontos melhorados', pn.filter(p => p.status === 'melhorado').length + '/' + pn.length, '<span class="mu">' + pn.filter(p => p.status === 'pendente').length + ' pendentes</span>')}</div>
-  <div class="row">${chart('Churn médio (%)', agg.map(a => a.ch), agg.map(a => MES(a.m)))}${chart('Turmas', agg.map(a => a.tu), agg.map(a => MES(a.m)))}${chart('Alunos', agg.map(a => a.al), agg.map(a => MES(a.m)))}</div>
-  <div class="card"><h3>Escola mês a mês</h3>${S.ocErro ? '<div class="dn" style="font-size:.8125rem;margin-bottom:6px">Ocorrências: ' + esc(S.ocErro) + '</div>' : ''}<div class="hint">Churn = média ponderada pelo número de alunos de cada professor. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
-  <div class="tw"><table><tr><th>Mês</th><th>Professores</th><th>Churn médio</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${a.ch}% ${delta(a.ch, p && p.ch, 1)}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td><td>${a.oc} <span class="mu">(${a.gr} graves)</span></td></tr>`; }).join('')}</table></div></div>
+  <div class="row">${card('Churn da escola', pct(L.ch), dlt(L.ch, P && P.ch, 1))}${card('Turmas', L.tu, delta(L.tu, P && P.tu))}${card('Alunos', L.al, delta(L.al, P && P.al))}${card('Pontos melhorados', pn.filter(p => p.status === 'melhorado').length + '/' + pn.length, '<span class="mu">' + pn.filter(p => p.status === 'pendente').length + ' pendentes</span>')}</div>
+  <div class="row">${chart('Churn da escola (%)', agg.filter(a => a.ch != null).map(a => a.ch), agg.filter(a => a.ch != null).map(a => MES(a.m)))}${chart('Turmas', agg.map(a => a.tu), agg.map(a => MES(a.m)))}${chart('Alunos', agg.map(a => a.al), agg.map(a => MES(a.m)))}</div>
+  <div class="card"><h3>Escola mês a mês</h3>${S.ocErro ? '<div class="dn" style="font-size:.8125rem;margin-bottom:6px">Ocorrências: ' + esc(S.ocErro) + '</div>' : ''}<div class="hint">Churn = cancelamentos do mês ÷ alunos do mês anterior, somando os professores que têm feedback nos dois meses. Se faltar feedback de algum professor no mês, os totais ficam menores que o real (veja a coluna Professores).</div>
+  <div class="tw"><table><tr><th>Mês</th><th>Professores</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${[...agg].reverse().map((a, i, x) => { const p = x[i + 1]; return `<tr><td>${MES(a.m)}</td><td class="${a.n < ts.length ? 'dn' : ''}">${a.n}/${ts.length}</td><td>${pct(a.ch)} ${dlt(a.ch, p && p.ch, 1)}${a.ba ? ` <span class="mu">(${a.ca} canc. ÷ ${a.ba} alunos)</span>` : ''}</td><td>${a.tu} ${delta(a.tu, p && p.tu)}</td><td>${a.al} ${delta(a.al, p && p.al)}</td><td>${a.oc} <span class="mu">(${a.gr} graves)</span></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Detalhe por professor</h3><select id="sm" onchange="schoolMes(this.value)">${[...meses].reverse().map(m => `<option value="${m}">${MES(m)}</option>`).join('')}</select><div id="bd"></div></div>`}${ocSchool()}`;
   topo('<button onclick="run(home)">← Professores</button>');
   if (L) schoolMes(L.m);
@@ -168,24 +199,24 @@ async function school() {
 const ocTxt = (m, nm) => { const k = SCH.ocs.filter(o => o.mes === m && nn(o.professor) === nn(nm)); return k.length + ' <span class="mu">(' + k.filter(o => clsOf(o) === 'graves').length + ' graves)</span>'; };
 function schoolMes(m) {
   const l = SCH.fs.filter(f => f.mes === m), sem = SCH.ts.filter(t => !l.some(f => f.teacherId === t.id));
-  $('#bd').innerHTML = `<div class="tw"><table><tr><th>Professor</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${l.map(f => `<tr><td>${esc((SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td><td>${f.churn}%</td><td>${f.turmas}</td><td>${f.alunos}</td><td>${ocTxt(m, (SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td></tr>`).join('')}</table></div>${sem.length ? `<p class="dn">Sem feedback neste mês: ${sem.map(t => esc(t.nome)).join(', ')}</p>` : ''}`;
+  $('#bd').innerHTML = `<div class="tw"><table><tr><th>Professor</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Ocorrências</th></tr>${l.map(f => `<tr><td>${esc((SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td><td>${pct(churnOf(SCH.fs.filter(x => x.teacherId === f.teacherId), f))}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas}</td><td>${f.alunos}</td><td>${ocTxt(m, (SCH.ts.find(t => t.id === f.teacherId) || {}).nome)}</td></tr>`).join('')}</table></div>${sem.length ? `<p class="dn">Sem feedback neste mês: ${sem.map(t => esc(t.nome)).join(', ')}</p>` : ''}`;
 }
 
 let D;
 async function teacher(id) {
-  D = await call('teacher', { id });
+  D = await call('teacher', { id }); D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f));
   topo('<button onclick="run(home)">← Professores</button><button class="p" onclick="novoFeedback()">Novo feedback do mês</button>'); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
   const tur = D.turmas.filter(t => L && t.feedbackId === L.id), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
-  const card = (n, k, lg) => `<div class="card"><div class="mu">${n}</div><div class="big">${L ? L[k] + (k === 'churn' ? '%' : '') : '–'}</div>${L ? delta(+L[k], P && +P[k], lg) : ''}</div>`;
+  const card = (n, k, lg) => { const v = L ? L[k] : null, p = P ? P[k] : null; return `<div class="card"><div class="mu">${n}</div><div class="big">${L ? (v == null ? '—' : v + (k === 'ch' ? '%' : '')) : '–'}</div>${L && v != null && p != null ? delta(+v, +p, lg) : ''}${k === 'ch' && L && v == null ? '<div class="mu">sem base do mês anterior</div>' : ''}</div>`; };
   app.innerHTML = `${hero(esc(D.teacher.nome), esc(D.teacher.email) || 'Professor')}
   
   ${L ? `<div class="mu">Último feedback: ${MES(L.mes)} (comparado a ${P ? MES(P.mes) : 'nenhum mês anterior'})</div>` : '<div class="mu">Sem feedbacks ainda.</div>'}
-  <div class="row">${card('Churn','churn',1)}${card('Turmas','turmas')}${card('Alunos','alunos')}<div class="card"><div class="mu">Pontos melhorados</div><div class="big">${ok.length}/${D.pontos.length}</div><span class="mu">${pend.length} pendentes</span></div></div>
-  <div class="row">${chart('Churn (%)', fs.map(f => +f.churn), fs.map(f => MES(f.mes)))}${chart('Turmas', fs.map(f => +f.turmas), fs.map(f => MES(f.mes)))}${chart('Alunos', fs.map(f => +f.alunos), fs.map(f => MES(f.mes)))}</div>
+  <div class="row">${card('Churn','ch',1)}${card('Turmas','turmas')}${card('Alunos','alunos')}<div class="card"><div class="mu">Pontos melhorados</div><div class="big">${ok.length}/${D.pontos.length}</div><span class="mu">${pend.length} pendentes</span></div></div>
+  <div class="row">${chart('Churn (%)', fs.filter(f => f.ch != null).map(f => f.ch), fs.filter(f => f.ch != null).map(f => MES(f.mes)))}${chart('Turmas', fs.map(f => +f.turmas), fs.map(f => MES(f.mes)))}${chart('Alunos', fs.map(f => +f.alunos), fs.map(f => MES(f.mes)))}</div>
   ${tur.length ? `<div class="card"><h3>Semana (${MES(L.mes)})</h3><div style="overflow-x:auto"><div class="week">${DIAS.slice(0, 7).map(d => `<div><b>${d}</b>${tur.filter(t => t.dia === d).sort((a, b) => a.horario < b.horario ? -1 : 1).map(t => `<div class="cl"><span class="cn">${esc(nomeTurma(t))}</span><br>${t.alunos} alunos</div>`).join('')}</div>`).join('')}</div></div>
   <p><button onclick="$('#tt').hidden=!$('#tt').hidden" style="margin-bottom:10px">Mostrar/ocultar tabela de turmas</button></p>
   <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>${esc(nomeTurma(t))}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
-  <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${f.churn}% ${delta(+f.churn, p && +p.churn, 1)}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
+  <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${pct(f.ch)} ${dlt(f.ch, p && p.ch, 1)}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · resolvido em ' + MES(p.mesResolvido) : ''})</span></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
   ${ocBlock()}`;
 }
@@ -249,8 +280,9 @@ function novoFeedback() {
   const pend = D.pontos.filter(p => p.status === 'pendente'), now = new Date().toISOString().slice(0, 7); TUR = [];
   app.innerHTML = `${hero('Novo feedback', esc(D.teacher.nome))}
   <section><h2>1. Dados do mês</h2><p class="hint">Escolha o mês do feedback e informe o churn do professor.</p>
-  <div class="grid"><div>${lab('Mês', 'Mês a que este feedback se refere. Se já existir um feedback deste mês, ele será substituído, e o sistema pede confirmação antes.')}<input id="mes" type="month" value="${now}"></div>
-  <div>${lab('Churn (%)', 'Percentual de evasão dos alunos deste professor. Pode digitar com vírgula ou ponto, por exemplo 4,4.')}<input id="ch" inputmode="decimal" placeholder="ex.: 4,4 ou 4.4"></div></div></section>
+  <div class="grid"><div>${lab('Mês', 'Mês a que este feedback se refere. Se já existir um feedback deste mês, ele será substituído, e o sistema pede confirmação antes.')}<input id="mes" type="month" value="${now}" oninput="chPrev()"></div>
+  <div>${lab('Cancelamentos no mês', 'Quantos alunos deste professor cancelaram neste mês. O churn é calculado sozinho: cancelamentos ÷ alunos do mês anterior.')}<input id="ca" type="number" min="0" step="1" placeholder="ex.: 2" oninput="chPrev()"></div></div>
+  <p id="chv" class="hint" style="margin:12px 0 0"></p></section>
   <section><h2>2. Turmas</h2><p class="hint">Cole o HTML da página de turmas já filtrada pelo professor. Turmas, alunos e módulos são lidos sozinhos.</p>
   ${lab('HTML da página de turmas', 'No sistema da escola, abra a lista de turmas filtrada por este professor, clique com o botão direito, escolha Inspecionar, copie o elemento body e cole aqui. Só entram turmas cujo professor tem o mesmo nome do cadastro.')}
   <textarea id="html" rows="5" oninput="prev()" placeholder="Cole aqui o HTML da página"></textarea><p id="pv" class="hint" style="margin:10px 0 0"></p></section>
@@ -262,7 +294,14 @@ function novoFeedback() {
   <section><h2>4. Observações</h2>${lab('Observações do mês', 'Anotações livres sobre este feedback. Aparecem no histórico do professor.')}<textarea id="ob" rows="3" placeholder="Opcional"></textarea></section>
   <button class="p" onclick="run(save)">Salvar feedback</button>`;
   topo(`<button onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>`);
-  addPonto(false);
+  addPonto(false); chPrev();
+}
+function chPrev() {
+  const m = $('#mes').value, ca = $('#ca').value, el = $('#chv'); if (!el || !m) return;
+  const pm = prevMes(m), b = D.feedbacks.find(f => f.mes === pm);
+  el.innerHTML = !b || !(+b.alunos > 0) ? `<span class="dn">Não há feedback de ${MES(pm)} (com alunos) para este professor, então o churn deste mês não poderá ser calculado.</span>`
+    : ca === '' ? `Base de cálculo: <b>${b.alunos} alunos</b> em ${MES(pm)}.`
+    : `Churn calculado: <b>${fmt1(+ca / +b.alunos * 100)}%</b> (${ca} cancelamentos ÷ ${b.alunos} alunos em ${MES(pm)})`;
 }
 function addPonto(foco) {
   const d = document.createElement('div'); d.style.cssText = 'display:flex;gap:8px;margin-top:8px';
@@ -276,12 +315,12 @@ function prev() {
   $('#pv').innerHTML = TUR.length ? `<b class="up">${TUR.length} turmas · ${TUR.reduce((s, t) => s + t.alunos, 0)} alunos</b> (professor confere)${all > TUR.length ? ` — ${all - TUR.length} turmas de outros professores ignoradas` : ''}` : `<span class="dn">Nenhuma turma encontrada para "${esc(D.teacher.nome)}".</span>`;
 }
 async function save() {
-  const ch = parseFloat($('#ch').value.trim().replace(',', '.'));
-  if (!$('#mes').value || isNaN(ch) || ch < 0) throw new Error('Preencha o mês e um churn válido (ex.: 4,4)');
+  const ca = parseInt($('#ca').value, 10);
+  if (!$('#mes').value || isNaN(ca) || ca < 0) throw new Error('Preencha o mês e os cancelamentos (use 0 se não houve)');
   if (!TUR.length) throw new Error('Cole o HTML com as turmas do professor');
   const ja = D.feedbacks.find(f => f.mes === $('#mes').value);
-  if (ja && !confirm('Você já tem um feedback de ' + MES(ja.mes) + ' para este professor.\n\nSe salvar, ele será substituído por este novo (turmas, churn, observações e pontos criados naquele mês).\n\nTem certeza?')) return;
-  await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, churn: ch, obs: $('#ob').value, turmas: TUR,
+  if (ja && !confirm('Você já tem um feedback de ' + MES(ja.mes) + ' para este professor.\n\nSe salvar, ele será substituído por este novo (turmas, cancelamentos, observações e pontos criados naquele mês).\n\nTem certeza?')) return;
+  await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, cancelamentos: ca, obs: $('#ob').value, turmas: TUR,
     melhorados: [...document.querySelectorAll('.mel:checked')].map(c => c.value), novos: [...document.querySelectorAll('.nv')].map(i => i.value.trim()).filter(Boolean) });
   toast('Feedback salvo'); teacher(D.teacher.id);
 }
