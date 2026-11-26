@@ -58,7 +58,7 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 </style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbyPirYNN69qvOxSy0fNZVhl1PSAO89KAvBymFcQhBQErNX14mTCNeszKIsppp_W8SHn/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwd4ndPRNwrO5c3dwQXRrBg92Jm5ICcQVhCHUG9xRLwSagL7B9nqe0hNw6ELe0lY-84/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -125,7 +125,7 @@ function chart(title, vals, labels, bad) {
   return `<div class="card"><div class="mu">${title}</div><svg viewBox="0 0 ${W} ${H}" width="100%"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2a74" stop-opacity=".38"/><stop offset="1" stop-color="#2b2a74" stop-opacity=".03"/></linearGradient></defs><polygon fill="url(#${gid})" points="${pts[0][0]},${base} ${pts.map(p => p.join(',')).join(' ')} ${pts[pts.length - 1][0]},${base}"/><polyline fill="none" stroke="#2b2a74" stroke-width="2.5" points="${pts.map(p => p.join(',')).join(' ')}"/>
   ${pts.map((p, i) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#e8173f"/><text x="${p[0]}" y="${H - 2}" font-size="9" fill="#6b6d80" text-anchor="middle">${labels[i]}</text><text x="${p[0]}" y="${p[1] - 6}" font-size="10" font-weight="600" fill="#3a3b4d" text-anchor="middle">${vals[i]}</text>`).join('')}</svg></div>`;
 }
-const delta = (a, b, lowGood) => { if (b === undefined) return ''; const d = +(a - b).toFixed(1); if (!d) return '<span class="mu">= igual</span>'; const good = lowGood ? d < 0 : d > 0; return `<span class="${good ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}</span>`; };
+const delta = (a, b, lowGood, dec = 1) => { if (b === undefined) return ''; const d = +(a - b).toFixed(dec); // dec = casas decimais da diferença if (!d) return '<span class="mu">= igual</span>'; const good = lowGood ? d < 0 : d > 0; return `<span class="${good ? 'up' : 'dn'}">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}</span>`; };
 
 /* ===== Telas ===== */
 async function home() {
@@ -220,7 +220,7 @@ async function teacher(id) {
   ${tur.length ? `<div class="card"><h3>Semana (${MES(L.mes)})</h3><div style="overflow-x:auto"><div class="week">${DIAS.slice(0, 7).map(d => `<div><b>${d}</b>${tur.filter(t => t.dia === d).sort((a, b) => a.horario < b.horario ? -1 : 1).map(t => `<div class="cl"><span class="cn">${esc(nomeTurma(t))}</span><br>${t.alunos} alunos</div>`).join('')}</div>`).join('')}</div></div>
   <p><button onclick="$('#tt').hidden=!$('#tt').hidden" style="margin-bottom:10px">Mostrar/ocultar tabela de turmas</button></p>
   <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>${esc(nomeTurma(t))}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
-  <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${pct(f.ch)} ${dlt(f.ch, p && p.ch, 1)}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td><button class="g" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">Excluir</button></td></tr>`; }).join('')}</table></div></div>
+  <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${pct(f.ch)} ${dlt(f.ch, p && p.ch, 1)}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td style="text-align:right;white-space:nowrap"><button class="ic" title="Editar feedback" aria-label="Editar feedback" onclick="novoFeedback('${f.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir feedback" aria-label="Excluir feedback" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">${ICO.rm}</button></td></tr>`; }).join('')}</table></div></div>
   <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha)"><div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · melhorou em ' + MES(p.mesResolvido) : ''})</span></div><div style="white-space:nowrap"><button class="ic" title="Editar ponto" aria-label="Editar ponto" onclick="pontoEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir ponto" aria-label="Excluir ponto" onclick="run(()=>delPonto('${p.id}'))">${ICO.rm}</button></div></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
   ${pesqBlock()}${ocBlock()}`;
 }
@@ -349,35 +349,39 @@ function pesqBlock() {
   if (!ps.length) return `<div class="card"><h3>Pesquisa de satisfação</h3><span class="mu">Nenhuma pesquisa registrada. Adicione uma ao criar um novo feedback.</span></div>`;
   const L = ps[ps.length - 1], P = ps[ps.length - 2];
   return `<div class="card"><h3>Pesquisa de satisfação</h3><div class="mu">Pesquisa mais recente: ${pLab(L)}${P ? ' (comparada a ' + pLab(P) + ')' : ''}</div>
-  ${(cd => `<div class="g3">${PQ.slice(0, 3).map(cd).join('')}</div><div class="g2" style="margin-bottom:0">${PQ.slice(3).map(cd).join('')}</div>`)(([k, n]) => `<div class="card"><div class="mu">${n}</div><div class="big">${pVal(L, k)}</div>${P ? delta(+L[k], +P[k]) : ''}</div>`)}</div>
+  ${(cd => `<div class="g3">${PQ.slice(0, 3).map(cd).join('')}</div><div class="g2" style="margin-bottom:0">${PQ.slice(3).map(cd).join('')}</div>`)(([k, n]) => `<div class="card"><div class="mu">${n}</div><div class="big">${pVal(L, k)}</div>${P ? delta(+L[k], +P[k], false, 2) : ''}</div>`)}</div>
   ${(ch => `<div class="g3">${PQ.slice(0, 3).map(ch).join('')}</div><div class="g2">${PQ.slice(3).map(ch).join('')}</div>`)(([k, n]) => chart(n, ps.map(p => +(+p[k]).toFixed(2)), ps.map(pShort)))}
-  <div class="card"><h3>Pesquisas realizadas</h3><div class="tw cmp"><table><tr>${pqHead}<th></th></tr>${[...ps].reverse().map((p, i, a) => { const o = a[i + 1]; return `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pNum(p, k)} ${o ? delta(+p[k], +o[k]) : ''}</td>`).join('')}<td style="text-align:right"><button class="ic" title="Editar pesquisa" aria-label="Editar pesquisa" onclick="pesqEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir pesquisa" aria-label="Excluir pesquisa" onclick="run(()=>delPesq('${p.id}'))">${ICO.rm}</button></td></tr>`; }).join('')}</table></div></div>`;
+  <div class="card"><h3>Pesquisas realizadas</h3><div class="tw cmp"><table><tr>${pqHead}<th></th></tr>${[...ps].reverse().map((p, i, a) => { const o = a[i + 1]; return `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pNum(p, k)} ${o ? delta(+p[k], +o[k], false, 2) : ''}</td>`).join('')}<td style="text-align:right"><button class="ic" title="Editar pesquisa" aria-label="Editar pesquisa" onclick="pesqEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir pesquisa" aria-label="Excluir pesquisa" onclick="run(()=>delPesq('${p.id}'))">${ICO.rm}</button></td></tr>`; }).join('')}</table></div></div>`;
 }
 let TUR = [];
-function novoFeedback() {
-  const pend = D.pontos.filter(p => p.status === 'pendente'), now = new Date().toISOString().slice(0, 7); TUR = [];
-  app.innerHTML = `${hero('Novo feedback', esc(D.teacher.nome))}
+let EDIT = null; // feedback em edição (null = novo feedback)
+function novoFeedback(editId) {
+  const F = editId ? D.feedbacks.find(x => x.id === editId) : null;
+  EDIT = F ? { id: F.id, turmas: D.turmas.filter(t => t.feedbackId === F.id).map(t => ({ turmaId: t.turmaId, modulo: t.modulo, mesInicio: t.mesInicio, dia: t.dia, horario: t.horario, professor: t.professor, alunos: +t.alunos, termino: t.termino, aula: t.aula })) } : null;
+  const pend = D.pontos.filter(p => p.status === 'pendente' || (F && p.status === 'melhorado' && p.mesResolvido === F.mes)), now = F ? F.mes : new Date().toISOString().slice(0, 7); TUR = EDIT ? EDIT.turmas : [];
+  app.innerHTML = `${hero(F ? 'Editar feedback' : 'Novo feedback', esc(D.teacher.nome) + (F ? ' · ' + MES(F.mes) : ''))}
   <section><h2>1. Dados do mês</h2><p class="hint">Escolha o mês do feedback e informe o churn do professor.</p>
-  <div class="grid"><div>${lab('Mês', 'Mês a que este feedback se refere. Se já existir um feedback deste mês, ele será substituído, e o sistema pede confirmação antes.')}<input id="mes" type="month" value="${now}" oninput="chPrev()"></div>
-  <div>${lab('Cancelamentos no mês', 'Quantos alunos deste professor cancelaram neste mês. O churn é calculado sozinho: cancelamentos ÷ alunos do mês anterior.')}<input id="ca" type="number" min="0" step="1" placeholder="ex.: 2" oninput="chPrev()"></div></div>
+  <div class="grid"><div>${lab('Mês', F ? 'O mês não pode ser alterado ao editar. Para mudar o mês, exclua este feedback e crie outro.' : 'Mês a que este feedback se refere. Se já existir um feedback deste mês, ele será substituído, e o sistema pede confirmação antes.')}<input id="mes" type="month" value="${now}" oninput="chPrev()" ${F ? 'disabled' : ''}></div>
+  <div>${lab('Cancelamentos no mês', 'Quantos alunos deste professor cancelaram neste mês. O churn é calculado sozinho: cancelamentos ÷ alunos do mês anterior.')}<input id="ca" type="number" min="0" step="1" placeholder="ex.: 2" value="${F && !vazio(F.cancelamentos) ? F.cancelamentos : ''}" oninput="chPrev()"></div></div>
   <p id="chv" class="hint" style="margin:12px 0 0"></p></section>
-  <section><h2>2. Turmas</h2><p class="hint">Cole o HTML da página de turmas já filtrada pelo professor. Turmas, alunos e módulos são lidos sozinhos.</p>
+  <section><h2>2. Turmas</h2><p class="hint">${F ? 'As turmas já salvas neste feedback são mantidas. Cole um novo HTML só se quiser substituí-las.' : 'Cole o HTML da página de turmas já filtrada pelo professor. Turmas, alunos e módulos são lidos sozinhos.'}</p>
   ${lab('HTML da página de turmas', 'No sistema da escola, abra a lista de turmas filtrada por este professor, clique com o botão direito, escolha Inspecionar, copie o elemento body e cole aqui. Só entram turmas cujo professor tem o mesmo nome do cadastro.')}
   <textarea id="html" rows="5" oninput="prev()" placeholder="Cole aqui o HTML da página"></textarea><p id="pv" class="hint" style="margin:10px 0 0"></p></section>
   <section><h2>3. Pontos de melhoria</h2><p class="hint">Marque o que melhorou desde o último feedback e registre os novos pontos.</p>
   ${pend.length ? lab('Pontos do último feedback', 'Marque os pontos que o professor melhorou. Os que ficarem sem marca continuam como pendentes no próximo mês.') : ''}
-  ${pend.map(p => `<div class="act"><label class="ck"><input type="checkbox" class="mel" value="${p.id}"><span>Melhorou: ${esc(p.texto)} <span class="mu">(${MES(p.mesCriado)})</span></span></label></div>`).join('') || '<p class="hint">Nenhum ponto pendente.</p>'}
+  ${pend.map(p => `<div class="act"><label class="ck"><input type="checkbox" class="mel" value="${p.id}" ${p.status === 'melhorado' ? 'checked' : ''}><span>Melhorou: ${esc(p.texto)} <span class="mu">(${MES(p.mesCriado)})</span></span></label></div>`).join('') || '<p class="hint">Nenhum ponto pendente.</p>'}
   <div style="height:14px"></div>${lab('Novos pontos a melhorar', 'Escreva um ponto por campo. Use o botão abaixo, ou Enter, para criar mais campos.')}<div id="nv"></div>
   <p style="margin:12px 0 0"><button type="button" onclick="addPonto()">+ Adicionar ponto</button></p></section>
   <section><h2>4. Pesquisa de satisfação</h2><p class="hint">Semestral. Marque só quando houver uma pesquisa nova (ou para corrigir uma anterior). O mês deste feedback não importa: o que vale é o ano e o semestre.</p>
   <div class="act"><label class="ck"><input type="checkbox" id="pq_on" onchange="$('#pqb').hidden=!this.checked"><span>Registrar uma pesquisa de satisfação neste feedback</span></label></div>
   <div id="pqb" hidden style="margin-top:16px"><div id="pqf">${pesqFields()}</div></div>
   ${D.pesquisas.length ? `<h3 style="margin:20px 0 8px">Pesquisas anteriores</h3><div class="tw cmp"><table><tr>${pqHead}<th></th></tr>${[...D.pesquisas].reverse().map(p => `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pNum(p, k)}</td>`).join('')}<td style="text-align:right"><button type="button" class="ic" title="Editar esta pesquisa" aria-label="Editar pesquisa" onclick="pesqLoad('${p.id}')">${ICO.ed}</button></td></tr>`).join('')}</table></div>` : ''}</section>
-  <section><h2>5. Observações</h2>${lab('Observações do mês', 'Anotações livres sobre este feedback. Aparecem no histórico do professor.')}<textarea id="ob" rows="3" placeholder="Opcional"></textarea></section>
-  <button class="p" onclick="run(save)">Salvar feedback</button>`;
+  <section><h2>5. Observações</h2>${lab('Observações do mês', 'Anotações livres sobre este feedback. Aparecem no histórico do professor.')}<textarea id="ob" rows="3" placeholder="Opcional">${F ? esc(F.obs) : ''}</textarea></section>
+  <button class="p" onclick="run(save)">${F ? 'Salvar alterações' : 'Salvar feedback'}</button>`;
   topo(`<button onclick="run(()=>teacher('${D.teacher.id}'))">← Cancelar</button>`);
-  addPonto(false); chPrev();
+  addPonto(false); chPrev(); pvInit();
 }
+function pvInit() { if (EDIT && $('#pv')) $('#pv').innerHTML = `<b class="up">${TUR.length} turmas · ${TUR.reduce((s, t) => s + t.alunos, 0)} alunos</b> (já salvas neste feedback)`; }
 function chPrev() {
   const m = $('#mes').value, ca = $('#ca').value, el = $('#chv'); if (!el || !m) return;
   const pm = prevMes(m), b = D.feedbacks.find(f => f.mes === pm);
@@ -392,6 +396,7 @@ function addPonto(foco) {
   $('#nv').appendChild(d); if (foco !== false) i.focus();
 }
 function prev() {
+  if (EDIT && !$('#html').value.trim()) { TUR = EDIT.turmas; pvInit(); return; } // campo vazio na edição = mantém as turmas salvas
   TUR = parseHTML($('#html').value).filter(t => t.professor.toLowerCase() === D.teacher.nome.toLowerCase());
   const all = parseHTML($('#html').value).length;
   $('#pv').innerHTML = TUR.length ? `<b class="up">${TUR.length} turmas · ${TUR.reduce((s, t) => s + t.alunos, 0)} alunos</b> (professor confere)${all > TUR.length ? ` — ${all - TUR.length} turmas de outros professores ignoradas` : ''}` : `<span class="dn">Nenhuma turma encontrada para "${esc(D.teacher.nome)}".</span>`;
@@ -402,9 +407,9 @@ async function save() {
   if (!TUR.length) throw new Error('Cole o HTML com as turmas do professor');
   const pesquisa = $('#pq_on').checked ? readPesq() : null;
   if ($('#pq_on').checked && !pesquisa) return;
-  const ja = D.feedbacks.find(f => f.mes === $('#mes').value);
+  const ja = EDIT ? null : D.feedbacks.find(f => f.mes === $('#mes').value);
   if (ja && !confirm('Você já tem um feedback de ' + MES(ja.mes) + ' para este professor.\n\nSe salvar, ele será substituído por este novo (turmas, cancelamentos e observações). Os pontos de melhoria já lançados neste mês são mantidos, e os novos serão somados a eles.\n\nTem certeza?')) return;
-  await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, pesquisa, cancelamentos: ca, obs: $('#ob').value, turmas: TUR,
+  await call('saveFeedback', { teacherId: D.teacher.id, mes: $('#mes').value, editId: EDIT ? EDIT.id : undefined, pesquisa, cancelamentos: ca, obs: $('#ob').value, turmas: TUR,
     melhorados: [...document.querySelectorAll('.mel:checked')].map(c => c.value), novos: [...document.querySelectorAll('.nv')].map(i => i.value.trim()).filter(Boolean) });
   toast('Feedback salvo'); teacher(D.teacher.id);
 }
