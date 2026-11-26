@@ -244,8 +244,7 @@ function ocDetail(id, list, comProf) {
   const sel = (k, n) => `<div>${lab(n)}<select data-k="${k}" onchange="ocF('${id}')"><option value="">Todos</option>${uniq(k).map(v => `<option>${esc(v)}</option>`).join('')}</select></div>`;
   setTimeout(() => ocF(id), 0);
   return `<div class="grid" id="${id}f"><div>${lab('Data de')}<input type="date" data-k="de" onchange="ocF('${id}')"></div><div>${lab('Data até')}<input type="date" data-k="ate" onchange="ocF('${id}')"></div>
-  ${comProf ? sel('professor', 'Professor') : ''}${sel('turma', 'Turma')}${sel('tipo', 'Tipo')}${sel('assunto', 'Assunto')}${sel('motivo', 'Motivo')}${sel('classificacao', 'Classificação')}
-  <div>${lab('Descrição contém')}<input type="search" data-k="q" placeholder="Buscar no texto" oninput="ocF('${id}')"></div></div>
+  ${comProf ? sel('professor', 'Professor') : ''}${sel('turma', 'Turma')}${sel('tipo', 'Tipo')}${sel('assunto', 'Assunto')}${sel('motivo', 'Motivo')}${sel('classificacao', 'Classificação')}</div>
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 8px"><span class="hint" id="${id}c" style="margin:0"></span><button type="button" style="padding:6px 14px" onclick="ocClear('${id}')">Limpar filtros</button></div>
   <div class="tw det"><table id="${id}t"></table></div><div id="${id}p" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;flex-wrap:wrap"></div>`;
 }
@@ -256,12 +255,12 @@ function ocRender(id) {
   const el = $('#' + id + 't'); if (!el) return;
   const O = OCL[id], f = {};
   document.querySelectorAll('#' + id + 'f [data-k]').forEach(e => f[e.dataset.k] = e.value.trim());
-  const L = O.list.filter(o => (!f.de || o.data >= f.de) && (!f.ate || o.data <= f.ate) && (!f.turma || turmaId(o.turma) === f.turma) && ['professor', 'tipo', 'assunto', 'motivo', 'classificacao'].every(k => !f[k] || o[k] === f[k]) && (!f.q || nn(o.descricao).includes(nn(f.q))));
+  const L = O.list.filter(o => (!f.de || o.data >= f.de) && (!f.ate || o.data <= f.ate) && (!f.turma || turmaId(o.turma) === f.turma) && ['professor', 'tipo', 'assunto', 'motivo', 'classificacao'].every(k => !f[k] || o[k] === f[k]));
   const N = 10, np = Math.max(1, Math.ceil(L.length / N)); O.pg = Math.min(Math.max(O.pg, 0), np - 1);
   $('#' + id + 'c').textContent = L.length + ' de ' + O.list.length + ' ocorrências';
   O.view = L.slice(O.pg * N, O.pg * N + N);
   el.innerHTML = `<tr><th>Data</th>${O.comProf ? '<th>Professor</th>' : ''}<th>Turma</th><th>Tipo</th><th>Assunto</th><th>Motivo</th><th>Classificação</th><th>Descrição</th></tr>` +
-    (O.view.map((o, i) => `<tr><td>${o.data.split('-').reverse().join('/')}</td>${O.comProf ? `<td>${esc(o.professor)}</td>` : ''}<td>${esc(turmaId(o.turma))}</td><td><span class="cut" title="${esc(o.tipo)}">${esc(o.tipo)}</span></td><td><span class="cut" title="${esc(o.assunto)}">${esc(o.assunto)}</span></td><td><span class="cut" title="${esc(o.motivo)}">${esc(o.motivo)}</span></td><td>${pill(o.classificacao)}</td><td><div style="display:flex;align-items:center;gap:8px"><span class="cut dc" title="${esc(o.descricao)}">${esc(o.descricao)}</span><button type="button" class="ic" title="Ver descrição completa" aria-label="Ver descrição completa" onclick="ocVer('${id}',${i})">${ICO.eye}</button></div></td></tr>`).join('') || '<tr><td colspan="9" class="mu">Nenhuma ocorrência com esses filtros.</td></tr>');
+    (O.view.map((o, i) => `<tr><td>${o.data.split('-').reverse().join('/')}</td>${O.comProf ? `<td>${esc(o.professor)}</td>` : ''}<td>${esc(turmaId(o.turma))}</td><td><span class="cut" title="${esc(o.tipo)}">${esc(o.tipo)}</span></td><td><span class="cut" title="${esc(o.assunto)}">${esc(o.assunto)}</span></td><td><span class="cut" title="${esc(o.motivo)}">${esc(o.motivo)}</span></td><td>${pill(o.classificacao)}</td><td><button type="button" class="ic" title="Ver descrição completa" aria-label="Ver descrição completa" onclick="ocVer('${id}',${i})">${ICO.eye}</button></td></tr>`).join('') || '<tr><td colspan="9" class="mu">Nenhuma ocorrência com esses filtros.</td></tr>');
   $('#' + id + 'p').innerHTML = np > 1 ? `<button type="button" style="padding:6px 14px" ${O.pg === 0 ? 'disabled' : ''} onclick="ocPg('${id}',-1)">← Anterior</button><span class="hint" style="margin:0">Página ${O.pg + 1} de ${np}</span><button type="button" style="padding:6px 14px" ${O.pg >= np - 1 ? 'disabled' : ''} onclick="ocPg('${id}',1)">Próxima →</button>` : '';
 }
 function ocVer(id, i) {
