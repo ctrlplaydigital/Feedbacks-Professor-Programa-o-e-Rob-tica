@@ -43,7 +43,7 @@ th{color:var(--marinho);font-weight:600}td,th{padding:8px 10px;border-bottom:1px
 .big{font-size:1.75rem;font-weight:700;color:var(--marinho);line-height:1.2}.up{color:var(--leve);font-weight:600}.dn{color:var(--erro);font-weight:600}
 .week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;min-width:700px}.week div b{display:block;text-align:center;color:var(--marinho)}
 .det td{white-space:normal;min-width:90px;vertical-align:top}.grid select{width:100%;min-width:0;text-overflow:ellipsis}
-.lk{cursor:pointer}.lk:hover td{background:#f4f5fb}.ic{padding:6px 9px;line-height:0}.ic svg{width:18px;height:18px}button.dg{border-color:var(--erro);color:var(--erro)}button.dg:hover{background:#fde2e7}
+button:disabled{opacity:.45;cursor:default}button:disabled:hover{background:#fff}.lk{cursor:pointer}.lk:hover td{background:#f4f5fb}.ic{padding:6px 9px;line-height:0}.ic svg{width:18px;height:18px}button.dg{border-color:var(--erro);color:var(--erro)}button.dg:hover{background:#fde2e7}
 .g3,.g2{display:grid;gap:16px;margin-bottom:16px}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:repeat(2,1fr)}.g3>.card,.g2>.card{margin:0}
 @media (max-width:700px){.g3,.g2{grid-template-columns:1fr}}
 .cmp th,.cmp td{white-space:normal}.cmp th{vertical-align:bottom}
@@ -117,9 +117,9 @@ function parseHTML(html) {
 
 /* ===== Gráfico simples em SVG (sem bibliotecas) ===== */
 let CG = 0; // contador para dar um id único ao degradê de cada gráfico
-function chart(title, vals, labels, bad) {
+function chart(title, vals, labels, bad, W = 300, H = 90) {
   if (!vals.length) return '';
-  const W = 300, H = 90, mx = Math.max(...vals, 1), mn = Math.min(...vals, 0), r = mx - mn || 1;
+  const mx = Math.max(...vals, 1), mn = Math.min(...vals, 0), r = mx - mn || 1;
   const gid = 'gr' + (++CG), base = H - 15;
   const pts = vals.map((v, i) => [vals.length < 2 ? W / 2 : 26 + i * (W - 52) / (vals.length - 1), H - 15 - (v - mn) / r * (H - 30)]);
   return `<div class="card"><div class="mu">${title}</div><svg viewBox="0 0 ${W} ${H}" width="100%"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2a74" stop-opacity=".38"/><stop offset="1" stop-color="#2b2a74" stop-opacity=".03"/></linearGradient></defs><polygon fill="url(#${gid})" points="${pts[0][0]},${base} ${pts.map(p => p.join(',')).join(' ')} ${pts[pts.length - 1][0]},${base}"/><polyline fill="none" stroke="#2b2a74" stroke-width="2.5" points="${pts.map(p => p.join(',')).join(' ')}"/>
@@ -235,25 +235,32 @@ const totRow = (nome, l) => `<tr class="tot"><td>${nome}</td><td>${cnt(l, 'grave
 const ocHead = n => `<tr><th>${n}</th><th>Graves</th><th>Médias</th><th>Leves</th><th>Total</th></tr>`;
 /* Tabela de detalhes com filtros dinâmicos (usada na ficha do professor e na visão da escola) */
 let OCL = {};
+const turmaId = t => { const m = String(t || '').match(/#?\s*(\d+)/); return m ? '#' + m[1] : String(t || ''); }; // só "#ID" da turma
 function ocDetail(id, list, comProf) {
-  OCL[id] = { list, comProf };
-  const uniq = k => [...new Set(list.map(o => o[k]).filter(Boolean))].sort();
+  OCL[id] = { list, comProf, pg: 0 };
+  const val = (o, k) => k === 'turma' ? turmaId(o.turma) : o[k];
+  const uniq = k => [...new Set(list.map(o => val(o, k)).filter(Boolean))].sort();
   const sel = (k, n) => `<div>${lab(n)}<select data-k="${k}" onchange="ocF('${id}')"><option value="">Todos</option>${uniq(k).map(v => `<option>${esc(v)}</option>`).join('')}</select></div>`;
   setTimeout(() => ocF(id), 0);
   return `<div class="grid" id="${id}f"><div>${lab('Data de')}<input type="date" data-k="de" onchange="ocF('${id}')"></div><div>${lab('Data até')}<input type="date" data-k="ate" onchange="ocF('${id}')"></div>
   ${comProf ? sel('professor', 'Professor') : ''}${sel('turma', 'Turma')}${sel('tipo', 'Tipo')}${sel('assunto', 'Assunto')}${sel('motivo', 'Motivo')}${sel('classificacao', 'Classificação')}
   <div>${lab('Descrição contém')}<input type="search" data-k="q" placeholder="Buscar no texto" oninput="ocF('${id}')"></div></div>
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 8px"><span class="hint" id="${id}c" style="margin:0"></span><button type="button" style="padding:6px 14px" onclick="ocClear('${id}')">Limpar filtros</button></div><div class="tw det"><table id="${id}t"></table></div>`;
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:14px 0 8px"><span class="hint" id="${id}c" style="margin:0"></span><button type="button" style="padding:6px 14px" onclick="ocClear('${id}')">Limpar filtros</button></div>
+  <div class="tw det"><table id="${id}t"></table></div><div id="${id}p" style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px;flex-wrap:wrap"></div>`;
 }
 function ocClear(id) { document.querySelectorAll('#' + id + 'f [data-k]').forEach(e => e.value = ''); ocF(id); }
-function ocF(id) {
+function ocF(id) { if (!OCL[id]) return; OCL[id].pg = 0; ocRender(id); } // mudou um filtro: volta para a página 1
+function ocPg(id, d) { OCL[id].pg += d; ocRender(id); }
+function ocRender(id) {
   const el = $('#' + id + 't'); if (!el) return;
-  const { list, comProf } = OCL[id], f = {};
+  const O = OCL[id], f = {};
   document.querySelectorAll('#' + id + 'f [data-k]').forEach(e => f[e.dataset.k] = e.value.trim());
-  const L = list.filter(o => (!f.de || o.data >= f.de) && (!f.ate || o.data <= f.ate) && ['professor', 'turma', 'tipo', 'assunto', 'motivo', 'classificacao'].every(k => !f[k] || o[k] === f[k]) && (!f.q || nn(o.descricao).includes(nn(f.q))));
-  $('#' + id + 'c').textContent = L.length + ' de ' + list.length + ' ocorrências';
-  el.innerHTML = `<tr><th>Data</th>${comProf ? '<th>Professor</th>' : ''}<th>Turma</th><th>Tipo</th><th>Assunto</th><th>Motivo</th><th>Classificação</th><th>Descrição</th></tr>` +
-    (L.map(o => `<tr><td>${o.data.split('-').reverse().join('/')}</td>${comProf ? `<td>${esc(o.professor)}</td>` : ''}<td>${esc(o.turma)}</td><td>${esc(o.tipo)}</td><td>${esc(o.assunto)}</td><td>${esc(o.motivo)}</td><td>${pill(o.classificacao)}</td><td>${esc(o.descricao)}</td></tr>`).join('') || '<tr><td colspan="9" class="mu">Nenhuma ocorrência com esses filtros.</td></tr>');
+  const L = O.list.filter(o => (!f.de || o.data >= f.de) && (!f.ate || o.data <= f.ate) && (!f.turma || turmaId(o.turma) === f.turma) && ['professor', 'tipo', 'assunto', 'motivo', 'classificacao'].every(k => !f[k] || o[k] === f[k]) && (!f.q || nn(o.descricao).includes(nn(f.q))));
+  const N = 10, np = Math.max(1, Math.ceil(L.length / N)); O.pg = Math.min(Math.max(O.pg, 0), np - 1);
+  $('#' + id + 'c').textContent = L.length + ' de ' + O.list.length + ' ocorrências';
+  el.innerHTML = `<tr><th>Data</th>${O.comProf ? '<th>Professor</th>' : ''}<th>Turma</th><th>Tipo</th><th>Assunto</th><th>Motivo</th><th>Classificação</th><th>Descrição</th></tr>` +
+    (L.slice(O.pg * N, O.pg * N + N).map(o => `<tr><td>${o.data.split('-').reverse().join('/')}</td>${O.comProf ? `<td>${esc(o.professor)}</td>` : ''}<td>${esc(turmaId(o.turma))}</td><td>${esc(o.tipo)}</td><td>${esc(o.assunto)}</td><td>${esc(o.motivo)}</td><td>${pill(o.classificacao)}</td><td>${esc(o.descricao)}</td></tr>`).join('') || '<tr><td colspan="9" class="mu">Nenhuma ocorrência com esses filtros.</td></tr>');
+  $('#' + id + 'p').innerHTML = np > 1 ? `<button type="button" style="padding:6px 14px" ${O.pg === 0 ? 'disabled' : ''} onclick="ocPg('${id}',-1)">← Anterior</button><span class="hint" style="margin:0">Página ${O.pg + 1} de ${np}</span><button type="button" style="padding:6px 14px" ${O.pg >= np - 1 ? 'disabled' : ''} onclick="ocPg('${id}',1)">Próxima →</button>` : '';
 }
 function ocBlock() {
   const vazio = t => `<div class="card"><h3>Ocorrências</h3><span class="mu">${esc(t)}</span></div>`, oc = D.ocorrencias || [];
@@ -270,13 +277,17 @@ function ocBlock() {
 }
 /* Ocorrências na visão da escola */
 function ocSchool() {
-  const oc = SCH.ocs;
-  if (SCH.ocErro) return `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">${esc(SCH.ocErro)}</span></div>`;
-  if (!oc.length) return `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">Nenhuma ocorrência registrada para os professores cadastrados.</span></div>`;
-  const meses = [...new Set(oc.map(o => o.mes))].sort(), profs = [...new Set(oc.map(o => o.professor))].sort();
-  return `<div class="row" style="align-items:flex-start"><div class="card" style="flex:1 1 320px"><h3>Ocorrências da escola mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => { const l = oc.filter(o => o.mes === m); return `<tr><td>${MES(m)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os meses', oc)}</table></div></div>
-  <div class="card" style="flex:1 1 320px"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div>
-  <div style="flex:1 1 240px;max-width:340px">${chart('Ocorrências da escola por mês', meses.map(m => oc.filter(o => o.mes === m).length), meses.map(MES))}</div></div>
+  const oc = SCH.ocs, aviso = t => `<div class="card"><h3>Ocorrências da escola</h3><span class="mu">${esc(t)}</span></div>`;
+  if (SCH.ocErro) return aviso(SCH.ocErro);
+  if (!oc.length) return aviso('Nenhuma ocorrência registrada para os professores cadastrados.');
+  const meses = [...new Set(oc.map(o => o.mes))].sort(), profs = [...new Set(oc.map(o => o.professor))].sort(), U = meses[meses.length - 1], A = prevMes(U);
+  const c = (m, k) => oc.filter(o => o.mes === m && (!k || clsOf(o) === k)).length;
+  const card = (n, k) => `<div class="card"><div class="mu">${n}</div><div class="big">${c(U, k)}</div>${delta(c(U, k), c(A, k), 1)}</div>`;
+  return `<div class="card"><h3>Ocorrências da escola</h3><div class="mu">Mês mais recente com ocorrências: ${MES(U)} (comparado a ${MES(A)})</div>
+  <div class="row">${card('Total', '')}${card('Graves', 'graves')}${card('Médias', 'medias')}${card('Leves', 'leves')}</div></div>
+  ${chart('Ocorrências da escola por mês', meses.map(m => c(m)), meses.map(MES), false, 900, 200)}
+  <div class="card"><h3>Ocorrências da escola mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => { const l = oc.filter(o => o.mes === m); return `<tr><td>${MES(m)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os meses', oc)}</table></div></div>
+  <div class="card"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div>
   <div class="card"><h3>Detalhes das ocorrências da escola</h3>${ocDetail('ocs', oc, true)}</div>`;
 }
 /* ===== Pontos de melhoria: editar / excluir ===== */
