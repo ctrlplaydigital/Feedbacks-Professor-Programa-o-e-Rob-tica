@@ -58,7 +58,7 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 </style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbzx61AU17J2aVDkToA-geGEe5jszHtKDfRVc0G8szapZSuEdochSUZRQbaqPyJ4R329/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbyPirYNN69qvOxSy0fNZVhl1PSAO89KAvBymFcQhBQErNX14mTCNeszKIsppp_W8SHn/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -207,7 +207,8 @@ function schoolMes(m) {
 
 let D;
 async function teacher(id) {
-  D = await call('teacher', { id }); D.pesquisas = (D.pesquisas || []).sort((a, b) => (+a.ano - +b.ano) || (+a.semestre - +b.semestre)); // cronológico; as listas exibem do mais recente para o mais antigo D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f));
+  D = await call('teacher', { id }); D.pesquisas = (D.pesquisas || []).sort((a, b) => (+a.ano - +b.ano) || (+a.semestre - +b.semestre)); 
+  D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f)); // cronológico; as listas exibem do mais recente para o mais antigo
   topo('<button onclick="run(home)">← Professores</button><button class="p" onclick="novoFeedback()">Novo feedback do mês</button>'); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
   const tur = D.turmas.filter(t => L && t.feedbackId === L.id), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
   const card = (n, k, lg) => { const v = L ? L[k] : null, p = P ? P[k] : null; return `<div class="card"><div class="mu">${n}</div><div class="big">${L ? (v == null ? '—' : v + (k === 'ch' ? '%' : '')) : '–'}</div>${L && v != null && p != null ? delta(+v, +p, lg) : ''}${k === 'ch' && L && v == null ? '<div class="mu">sem base do mês anterior</div>' : ''}</div>`; };
