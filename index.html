@@ -59,29 +59,31 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 </style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div><div id="md" hidden onclick="if(event.target===this)ocFechar()"><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mdt"><button class="ic" onclick="ocFechar()" aria-label="Fechar" style="float:right">✕</button><div id="mdc"></div></div></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbyjXR25tZei4Dpsrd7v9_RFpQfcL1K4KaMISozofZlWlhgA6UOTCdB0_XjE2AsDuCU/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxW440fQ6UGJEk7YIynrsynhIb2L1_v7XDFskZtV0uSCsLhWLq9ghKwV61ieDT5q05g/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
+  const token = sessionStorage.getItem('tk') || '';
   if (window.google && google.script && google.script.run)           // rodando dentro do Apps Script
-    return new Promise((ok, no) => google.script.run.withSuccessHandler(ok).withFailureHandler(e => no(e)).api(action, data));
-  return fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, data }) }) // GitHub Pages (text/plain evita CORS preflight)
+    return new Promise((ok, no) => google.script.run.withSuccessHandler(ok).withFailureHandler(e => no(e)).api(action, data, token));
+  return fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, data, token }) }) // GitHub Pages (text/plain evita CORS preflight)
     .then(r => r.json()).then(r => { if (!r.ok) throw new Error(r.error); return r.data; });
 }
 
 /* Indicador de carregamento global: aparece em toda chamada ao backend e bloqueia cliques duplicados */
 let pend = 0;
-const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', updatePonto: 'Salvando ponto…', deletePonto: 'Excluindo ponto…', savePesquisa: 'Salvando pesquisa…', deletePesquisa: 'Excluindo pesquisa…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
+const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', loginAdmin: 'Entrando…', enviarRelatorio: 'Enviando e-mail…', loginProfessor: 'Entrando…', gerarAcesso: 'Gerando acesso…', updatePonto: 'Salvando ponto…', deletePonto: 'Excluindo ponto…', savePesquisa: 'Salvando pesquisa…', deletePesquisa: 'Excluindo pesquisa…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
 async function call(action, data) {
   pend++; $('#lt').textContent = MSG[action] || 'Carregando…'; $('#ld').classList.add('on');
   try { return await rawCall(action, data); }
+  catch (e) { if (String(e.message || e) === 'SESSAO') { sair('Sessão expirada. Entre novamente.'); throw new Error('Sessão expirada'); } throw e; }
   finally { if (--pend <= 0) { pend = 0; $('#ld').classList.remove('on'); } }
 }
 const nomeTurma = t => `#${t.turmaId} - ${t.modulo} / ${t.mesInicio} / ${String(t.dia).split('-')[0].toUpperCase()} / ${t.horario} / ${t.professor}`;
 const nn = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 const clsOf = o => { const c = nn(o.classificacao); return c.startsWith('grav') ? 'graves' : c.startsWith('med') ? 'medias' : 'leves'; };
 const prevMes = m => { const [y, n] = m.split('-').map(Number), d = new Date(y, n - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
-const topo = h => { $('#topact').innerHTML = h; };
+const topo = h => { $('#topact').innerHTML = h + (sessionStorage.getItem('tk') ? '<button onclick="sair()">Sair</button>' : ''); };
 /* Churn = cancelamentos do mês ÷ alunos do mês anterior (feedbacks antigos, sem cancelamentos, usam o churn que foi digitado) */
 const fmt1 = n => +n.toFixed(1), vazio = c => c === '' || c === undefined || c === null;
 const pct = v => v == null ? '—' : v + '%', dlt = (a, b, lg) => a == null || b == null ? '' : delta(a, b, lg);
@@ -147,9 +149,23 @@ function editForm(id) {
   <section><h2>Dados do professor</h2>
   <div class="grid"><div>${lab('Nome', 'Se mudar o nome, ele precisa continuar igual ao que aparece nas turmas do sistema da escola e na planilha de ocorrências, senão as turmas e ocorrências deixam de ser ligadas a este professor.')}<input id="n" value="${esc(t.nome)}"></div>
   <div>${lab('E-mail')}<input id="e" value="${esc(t.email)}"></div></div>
-  <div class="acts" style="margin:20px 0 0;justify-content:space-between"><button class="p" onclick="run(()=>saveT('${id}'))">Salvar alterações</button><button class="dg" onclick="run(()=>delT('${id}'))">Excluir professor</button></div></section>`;
+  <div class="acts" style="margin:20px 0 0;justify-content:space-between"><button class="p" onclick="run(()=>saveT('${id}'))">Salvar alterações</button><button class="dg" onclick="run(()=>delT('${id}'))">Excluir professor</button></div></section>${acessoSec(t)}`;
   topo('<button onclick="run(home)">← Cancelar</button>');
 }
+const linkProf = c => location.origin + location.pathname + '?p=' + c;
+function acessoSec(t) {
+  return `<section><h2>Acesso do professor</h2><p class="hint">O professor entra pelo link abaixo, com o e-mail cadastrado e a senha. Ele vê só a própria ficha, sem poder editar nada. Salve as alterações do cadastro antes de criar o acesso.</p>
+  ${t.codigo ? `${lab('Link de acesso')}<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="lk" readonly value="${esc(linkProf(t.codigo))}" style="flex:1 1 300px"><button type="button" onclick="copiar('lk')">Copiar link</button></div>` : ''}
+  <p class="hint" style="margin:12px 0">Situação: <b>${t.temAcesso ? 'acesso criado' : 'sem acesso criado'}</b>${t.email ? '' : ' · <span class="dn">cadastre o e-mail do professor para criar o acesso</span>'}</p>
+  <button type="button" onclick="run(()=>gerarAcesso('${t.id}'))">${t.temAcesso ? 'Gerar nova senha' : 'Criar acesso'}</button><div id="acs"></div></section>`;
+}
+async function gerarAcesso(id) {
+  const t = TS.find(x => x.id === id);
+  if (t.temAcesso && !confirm('Gerar uma nova senha? A senha atual deixa de funcionar.')) return;
+  const r = await call('gerarAcesso', { id }); t.codigo = r.codigo; t.temAcesso = true; editForm(id);
+  $('#acs').innerHTML = `<div class="act"><b>Anote agora: a senha não poderá ser vista de novo.</b><div style="margin-top:8px">E-mail: <b>${esc(t.email)}</b></div><div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">Senha: <input id="sn" readonly value="${esc(r.senha)}" style="max-width:200px"><button type="button" onclick="copiar('sn')">Copiar</button></div></div>`;
+}
+function copiar(id) { const e = $('#' + id); e.select(); try { navigator.clipboard.writeText(e.value); } catch (x) { document.execCommand('copy'); } toast('Copiado'); }
 async function saveT(id) { await call('updateTeacher', { id, nome: $('#n').value, email: $('#e').value }); toast('Professor atualizado'); await home(); }
 async function delT(id) {
   const t = TS.find(x => x.id === id);
@@ -210,7 +226,7 @@ let D;
 async function teacher(id) {
   D = await call('teacher', { id }); D.pesquisas = (D.pesquisas || []).sort((a, b) => (+a.ano - +b.ano) || (+a.semestre - +b.semestre)); 
   D.feedbacks.forEach(f => f.ch = churnOf(D.feedbacks, f)); // cronológico; as listas exibem do mais recente para o mais antigo
-  topo('<button onclick="run(home)">← Professores</button><button class="p" onclick="novoFeedback()">Novo feedback do mês</button>'); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
+  topo(RO ? '' : '<button onclick="run(home)">← Professores</button><button onclick="run(relatorioForm)">Enviar relatório</button><button class="p" onclick="novoFeedback()">Novo feedback do mês</button>'); const fs = D.feedbacks, L = fs[fs.length - 1], P = fs[fs.length - 2];
   const tur = D.turmas.filter(t => L && t.feedbackId === L.id), pend = D.pontos.filter(p => p.status === 'pendente'), ok = D.pontos.filter(p => p.status === 'melhorado');
   const card = (n, k, lg) => { const v = L ? L[k] : null, p = P ? P[k] : null; return `<div class="card"><div class="mu">${n}</div><div class="big">${L ? (v == null ? '—' : v + (k === 'ch' ? '%' : '')) : '–'}</div>${L && v != null && p != null ? delta(+v, +p, lg) : ''}${k === 'ch' && L && v == null ? '<div class="mu">sem base do mês anterior</div>' : ''}</div>`; };
   app.innerHTML = `${hero(esc(D.teacher.nome), esc(D.teacher.email) || 'Professor')}
@@ -221,9 +237,9 @@ async function teacher(id) {
   ${tur.length ? `<div class="card"><h3>Semana (${MES(L.mes)})</h3><div style="overflow-x:auto"><div class="week">${DIAS.slice(0, 7).map(d => `<div><b>${d}</b>${tur.filter(t => t.dia === d).sort((a, b) => a.horario < b.horario ? -1 : 1).map(t => `<div class="cl"><span class="cn">${esc(nomeTurma(t))}</span><br>${t.alunos} alunos</div>`).join('')}</div>`).join('')}</div></div>
   <p><button onclick="$('#tt').hidden=!$('#tt').hidden" style="margin-bottom:10px">Mostrar/ocultar tabela de turmas</button></p>
   <div class="tw"><table id="tt" hidden><tr><th>Turma</th><th>Dia</th><th>Hora</th><th>Alunos</th><th>Término</th><th>Aula</th></tr>${tur.map(t => `<tr><td>${esc(nomeTurma(t))}</td><td>${t.dia}</td><td>${t.horario}</td><td>${t.alunos}</td><td>${t.termino}</td><td>${esc(t.aula)}</td></tr>`).join('')}</table></div></div>` : ''}
-  <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th><th></th></tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${pct(f.ch)} ${dlt(f.ch, p && p.ch, 1)}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td><td style="text-align:right;white-space:nowrap"><button class="ic" title="Editar feedback" aria-label="Editar feedback" onclick="novoFeedback('${f.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir feedback" aria-label="Excluir feedback" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">${ICO.rm}</button></td></tr>`; }).join('')}</table></div></div>
-  <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha)"><div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · melhorou em ' + MES(p.mesResolvido) : ''})</span></div><div style="white-space:nowrap"><button class="ic" title="Editar ponto" aria-label="Editar ponto" onclick="pontoEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir ponto" aria-label="Excluir ponto" onclick="run(()=>delPonto('${p.id}'))">${ICO.rm}</button></div></div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
-  ${pesqBlock(D.pesquisas, { tid: D.teacher.id, nome: D.teacher.nome, back: () => teacher(D.teacher.id) })}${ocBlock()}`;
+  <div class="card"><h3>Histórico mês a mês</h3><div class="tw"><table><tr><th>Mês</th><th>Churn</th><th>Turmas</th><th>Alunos</th><th>Observações</th>${RO ? '' : '<th></th>'}</tr>${[...fs].reverse().map((f, i, a) => { const p = a[i + 1]; return `<tr><td>${MES(f.mes)}</td><td>${pct(f.ch)} ${dlt(f.ch, p && p.ch, 1)}${vazio(f.cancelamentos) ? '' : ` <span class="mu">(${f.cancelamentos} canc.)</span>`}</td><td>${f.turmas} ${delta(+f.turmas, p && +p.turmas)}</td><td>${f.alunos} ${delta(+f.alunos, p && +p.alunos)}</td><td>${esc(f.obs)}</td>${RO ? '' : `<td style="text-align:right;white-space:nowrap"><button class="ic" title="Editar feedback" aria-label="Editar feedback" onclick="novoFeedback('${f.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir feedback" aria-label="Excluir feedback" onclick="run(()=>delF('${f.id}','${MES(f.mes)}'))">${ICO.rm}</button></td>`}</tr>`; }).join('')}</table></div></div>
+  <div class="card"><h3>Pontos de melhoria</h3>${D.pontos.map(p => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--linha)"><div>${p.status === 'melhorado' ? '✅' : '⏳'} ${esc(p.texto)} <span class="mu">(desde ${MES(p.mesCriado)}${p.mesResolvido ? ' · melhorou em ' + MES(p.mesResolvido) : ''})</span></div>${RO ? '' : `<div style="white-space:nowrap"><button class="ic" title="Editar ponto" aria-label="Editar ponto" onclick="pontoEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir ponto" aria-label="Excluir ponto" onclick="run(()=>delPonto('${p.id}'))">${ICO.rm}</button></div>`}</div>`).join('') || '<span class="mu">Nenhum ponto.</span>'}</div>
+  ${pesqBlock(D.pesquisas, { tid: D.teacher.id, nome: D.teacher.nome, back: () => teacher(D.teacher.id), ro: RO })}${ocBlock()}`;
 }
 
 async function delF(id, m) {
@@ -299,6 +315,53 @@ function ocSchool() {
   <div class="card"><h3>Ocorrências da escola mês a mês</h3><div class="tw"><table>${ocHead('Mês')}${[...meses].reverse().map(m => { const l = oc.filter(o => o.mes === m); return `<tr><td>${MES(m)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os meses', oc)}</table></div></div>
   <div class="card"><h3>Ocorrências por professor</h3><div class="tw"><table>${ocHead('Professor')}${profs.map(p => { const l = oc.filter(o => o.professor === p); return `<tr><td>${esc(p)}</td><td>${cnt(l, 'graves')}</td><td>${cnt(l, 'medias')}</td><td>${cnt(l, 'leves')}</td><td><b>${l.length}</b></td></tr>`; }).join('')}${totRow('Todos os professores', oc)}</table></div></div>
   <div class="card"><h3>Detalhes das ocorrências da escola</h3>${ocDetail('ocs', oc, true)}</div>`;
+}
+/* ===== Relatório por e-mail ===== */
+function relHtml(F, msg) {
+  const P = D.feedbacks.find(x => x.mes === prevMes(F.mes)), td = 'padding:9px 10px;border-bottom:1px solid #dfe2ea';
+  const sec = n => `<h2 style="font-size:16px;color:#2b2a74;margin:26px 0 8px;font-family:Arial,Helvetica,sans-serif">${n}</h2>`;
+  const tb = r => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:14px;color:#3a3b4d">${r}</table>`;
+  const tr = (n, v, d) => `<tr><td style="${td}">${n}</td><td style="${td};font-weight:bold;color:#2b2a74">${v}</td><td style="${td}">${d || ''}</td></tr>`;
+  const sa = (a, b, lg, dec) => { if (a == null || b == null) return ''; const d = +(a - b).toFixed(dec || 1); if (!d) return '<span style="color:#6b6d80">= igual</span>'; const good = lg ? d < 0 : d > 0; return `<span style="color:${good ? '#1d7a45' : '#d3122f'};font-weight:bold">${d > 0 ? '▲' : '▼'} ${Math.abs(d)}</span>`; };
+  const li = a => a.length ? `<ul style="margin:6px 0 0;padding-left:20px;font-size:14px;color:#3a3b4d">${a.map(x => `<li style="margin:3px 0">${esc(x)}</li>`).join('')}</ul>` : '';
+  let b = sec('Indicadores de ' + MES(F.mes)) + tb(tr('Churn', pct(F.ch), P ? sa(F.ch, P.ch, 1) : '') + tr('Turmas', F.turmas, P ? sa(+F.turmas, +P.turmas) : '') + tr('Alunos', F.alunos, P ? sa(+F.alunos, +P.alunos) : ''));
+  if (!vazio(F.cancelamentos) && P) b += `<p style="font-size:12px;color:#6b6d80;margin:6px 0 0">Churn = ${F.cancelamentos} cancelamentos ÷ ${P.alunos} alunos em ${MES(P.mes)}. As setas comparam com ${MES(P.mes)}.</p>`;
+  const ps = D.pesquisas || [];
+  if (ps.length) { const L = ps[ps.length - 1], O = ps[ps.length - 2]; b += sec('Pesquisa de satisfação · ' + pLab(L)) + tb(PQ.map(([k, n]) => tr(n, pVal(L, k), O ? sa(+L[k], +O[k], 0, 2) : '')).join('')) + (O ? `<p style="font-size:12px;color:#6b6d80;margin:6px 0 0">As setas comparam com a pesquisa de ${pLab(O)}.</p>` : ''); }
+  if (!D.ocErro) { const oc = (D.ocorrencias || []).filter(o => o.mes === F.mes); b += sec('Ocorrências em ' + MES(F.mes)) + tb(tr('Total', oc.length) + tr('Graves', cnt(oc, 'graves')) + tr('Médias', cnt(oc, 'medias')) + tr('Leves', cnt(oc, 'leves'))); }
+  const pend = D.pontos.filter(p => p.status === 'pendente').map(p => p.texto), mel = D.pontos.filter(p => p.status === 'melhorado' && p.mesResolvido === F.mes).map(p => p.texto);
+  if (pend.length || mel.length) b += sec('Pontos de melhoria') + (mel.length ? `<div style="font-size:14px;color:#1d7a45;font-weight:bold">Melhorados em ${MES(F.mes)}</div>${li(mel)}` : '') + (pend.length ? `<div style="font-size:14px;color:#2b2a74;font-weight:bold;margin-top:10px">A melhorar</div>${li(pend)}` : '');
+  if (F.obs) b += sec('Observações') + `<p style="font-size:14px;color:#3a3b4d;margin:0">${esc(F.obs).replace(/\n/g, '<br>')}</p>`;
+  if (D.teacher.codigo && D.teacher.temAcesso) b += `<p style="margin:28px 0 0"><a href="${esc(linkProf(D.teacher.codigo))}" style="background:#e8173f;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px;display:inline-block;font-size:14px">Ver minha ficha completa</a></p>`;
+  return `<div style="background:#f7f8fb;padding:24px 12px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #dfe2ea">
+<div style="background:#2d2c70;color:#ffffff;padding:24px 28px"><div style="font-size:13px">Relatório de acompanhamento · ${MES(F.mes)}</div><div style="font-size:22px;font-weight:bold;margin-top:4px">${esc(D.teacher.nome)}</div></div>
+<div style="padding:8px 28px 30px">${msg.trim() ? `<p style="font-size:14px;color:#3a3b4d;margin:20px 0 0;line-height:1.5">${esc(msg).replace(/\n/g, '<br>')}</p>` : ''}${b}</div></div></div>`;
+}
+function relatorioForm() {
+  if (!D.feedbacks.length) throw new Error('Cadastre ao menos um feedback antes de enviar o relatório');
+  const t = D.teacher, ok = /\S+@\S+\.\S+/.test(t.email || '');
+  app.innerHTML = `${hero('Enviar relatório por e-mail', esc(t.nome))}
+  <section><h2>1. Destinatário e conteúdo</h2><div class="grid">
+  <div>${lab('Para', 'E-mail do cadastro do professor. Para mudar, edite o professor na lista de professores.')}<input value="${esc(t.email)}" readonly></div>
+  <div>${lab('Mês do relatório', 'Mês do feedback usado como base. As setas comparam sempre com o mês anterior.')}<select id="rl_mes" onchange="rlPrev()">${[...D.feedbacks].reverse().map(f => `<option value="${f.mes}">${MES(f.mes)}</option>`).join('')}</select></div></div>
+  <div style="height:14px"></div>${lab('Assunto')}<input id="rl_as">
+  <div style="height:14px"></div>${lab('Mensagem (opcional)', 'Texto seu que aparece no começo do e-mail, antes dos dados.')}<textarea id="rl_msg" rows="3" oninput="rlPrev(false)" placeholder="Ex.: Olá! Segue o seu relatório do mês."></textarea>
+  ${ok ? '' : '<p class="dn" style="margin:12px 0 0">Este professor não tem um e-mail válido cadastrado. Cadastre antes de enviar.</p>'}</section>
+  <section><h2>2. Prévia</h2><iframe id="rl_pv" title="Prévia do e-mail" style="width:100%;height:560px;border:1px solid var(--linha);border-radius:12px;background:#fff"></iframe>
+  <p style="margin:20px 0 0"><button class="p" ${ok ? '' : 'disabled'} onclick="run(enviarRel)">Enviar e-mail</button></p></section>`;
+  topo(`<button onclick="run(()=>teacher('${t.id}'))">← Cancelar</button>`);
+  rlPrev();
+}
+function rlPrev(reset) {
+  const F = D.feedbacks.find(x => x.mes === $('#rl_mes').value);
+  if (reset !== false) $('#rl_as').value = 'Seu relatório de acompanhamento · ' + MES(F.mes);
+  $('#rl_pv').srcdoc = relHtml(F, $('#rl_msg').value);
+}
+async function enviarRel() {
+  const F = D.feedbacks.find(x => x.mes === $('#rl_mes').value), t = D.teacher;
+  if (!confirm('Enviar o relatório de ' + MES(F.mes) + ' para ' + t.email + '?')) return;
+  await call('enviarRelatorio', { id: t.id, mes: F.mes, assunto: $('#rl_as').value, html: relHtml(F, $('#rl_msg').value) });
+  toast('E-mail enviado para ' + t.email); await teacher(t.id);
 }
 /* ===== Pontos de melhoria: editar / excluir ===== */
 function pontoEdit(id) {
@@ -379,7 +442,7 @@ function pesqBlock(ps, ctx) {
   return `<div class="card">${cab}<div class="mu">Pesquisa mais recente: ${pLab(L)}${P ? ' (comparada a ' + pLab(P) + ')' : ''}</div>
   ${(cd => `<div class="g3">${PQ.slice(0, 3).map(cd).join('')}</div><div class="g2" style="margin-bottom:0">${PQ.slice(3).map(cd).join('')}</div>`)(([k, n]) => `<div class="card"><div class="mu">${n}</div><div class="big">${pVal(L, k)}</div>${P ? delta(+L[k], +P[k], false, 2) : ''}</div>`)}</div>
   ${(ch => `<div class="g3">${PQ.slice(0, 3).map(ch).join('')}</div><div class="g2">${PQ.slice(3).map(ch).join('')}</div>`)(([k, n]) => chart(n, ps.map(p => +(+p[k]).toFixed(2)), ps.map(pShort)))}
-  <div class="card"><h3>Pesquisas realizadas</h3><div class="tw cmp"><table><tr>${pqHead}<th></th></tr>${[...ps].reverse().map((p, i, a) => { const o = a[i + 1]; return `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pNum(p, k)} ${o ? delta(+p[k], +o[k], false, 2) : ''}</td>`).join('')}<td style="text-align:right;white-space:nowrap"><button class="ic" title="Editar pesquisa" aria-label="Editar pesquisa" onclick="pesqEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir pesquisa" aria-label="Excluir pesquisa" onclick="run(()=>delPesq('${p.id}'))">${ICO.rm}</button></td></tr>`; }).join('')}</table></div></div>`;
+  <div class="card"><h3>Pesquisas realizadas</h3><div class="tw cmp"><table><tr>${pqHead}${ctx.ro ? '' : '<th></th>'}</tr>${[...ps].reverse().map((p, i, a) => { const o = a[i + 1]; return `<tr><td><b>${pLab(p)}</b></td>${PQ.map(([k]) => `<td>${pNum(p, k)} ${o ? delta(+p[k], +o[k], false, 2) : ''}</td>`).join('')}${ctx.ro ? '' : `<td style="text-align:right;white-space:nowrap"><button class="ic" title="Editar pesquisa" aria-label="Editar pesquisa" onclick="pesqEdit('${p.id}')">${ICO.ed}</button> <button class="ic dg" title="Excluir pesquisa" aria-label="Excluir pesquisa" onclick="run(()=>delPesq('${p.id}'))">${ICO.rm}</button></td>`}</tr>`; }).join('')}</table></div></div>`;
 }
 let TUR = [];
 let EDIT = null; // feedback em edição (null = novo feedback)
@@ -441,5 +504,39 @@ async function save() {
     melhorados: [...document.querySelectorAll('.mel:checked')].map(c => c.value), novos: [...document.querySelectorAll('.nv')].map(i => i.value.trim()).filter(Boolean) });
   toast('Feedback salvo'); teacher(D.teacher.id);
 }
-run(home);
+/* ===== Login e inicialização ===== */
+let RO = false; // true = professor (somente leitura)
+const PARAM_P = new URLSearchParams(location.search).get('p'); // código do link do professor
+function sair(msg) {
+  if (sessionStorage.getItem('tk') && typeof msg !== 'string') rawCall('logout').catch(() => {});
+  sessionStorage.clear(); RO = false; loginTela(typeof msg === 'string' ? msg : '');
+}
+function loginTela(msg) {
+  topo('');
+  app.innerHTML = `<div style="max-width:420px;margin:0 auto">${hero(PARAM_P ? 'Acesso do professor' : 'Acesso administrativo', PARAM_P ? 'Entre com o e-mail cadastrado e a senha que você recebeu.' : 'Entre para acessar o painel de feedbacks.')}
+  <section>${msg ? `<p class="dn" style="margin:0 0 12px">${esc(msg)}</p>` : ''}
+  ${lab(PARAM_P ? 'E-mail' : 'Usuário')}<input id="lu" autocomplete="username" ${PARAM_P ? 'type="email"' : ''}>
+  <div style="height:14px"></div>${lab('Senha')}<input id="ls" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')run(entrar)">
+  <p style="margin:20px 0 0"><button class="p" onclick="run(entrar)">Entrar</button></p></section></div>`;
+  $('#lu').focus(); $('#lu').onkeydown = e => { if (e.key === 'Enter') $('#ls').focus(); };
+}
+async function entrar() {
+  const u = $('#lu').value.trim(), s = $('#ls').value;
+  if (!u || !s) throw new Error('Preencha ' + (PARAM_P ? 'o e-mail' : 'o usuário') + ' e a senha');
+  const r = PARAM_P ? await call('loginProfessor', { codigo: PARAM_P, email: u, senha: s }) : await call('loginAdmin', { usuario: u, senha: s });
+  sessionStorage.setItem('tk', r.token); sessionStorage.setItem('role', r.role); sessionStorage.setItem('tid', r.tid || '');
+  await entrarApp();
+}
+async function entrarApp() {
+  RO = sessionStorage.getItem('role') === 'prof';
+  if (RO) await teacher(sessionStorage.getItem('tid')); else await home();
+}
+async function boot() {
+  if (sessionStorage.getItem('tk') && (!PARAM_P || sessionStorage.getItem('role') === 'prof')) {
+    try { await call('me'); await entrarApp(); return; } catch (e) { sessionStorage.clear(); }
+  }
+  if (!$('#lu')) loginTela(); // se a sessão expirada já mostrou a tela de login com aviso, não a refaz
+}
+run(boot);
+
 </script></body></html>
