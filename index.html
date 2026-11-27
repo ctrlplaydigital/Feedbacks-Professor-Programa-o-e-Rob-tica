@@ -59,7 +59,7 @@ tr.tot td{background:#eeeefa;font-weight:600;color:var(--marinho)}.cn{font-weigh
 </style></head><body><header class="topo"><div class="topo-in"><div class="marca"><img src="https://media.cna.com.br/cna_logo_3ff9a4f2fc.svg" alt="CNA" onerror="this.replaceWith(document.createTextNode('CNA'))"></div><div id="topact" class="topact"></div></div></header><main id="app"></main><div id="ld"><div class="sp"></div><div id="lt"></div></div><div id="msg"></div><div id="md" hidden onclick="if(event.target===this)ocFechar()"><div class="mbox" role="dialog" aria-modal="true" aria-labelledby="mdt"><button class="ic" onclick="ocFechar()" aria-label="Fechar" style="float:right">✕</button><div id="mdc"></div></div></div>
 <script>
 /* ===== CONFIG: cole aqui a URL do Web App (termina em /exec) ===== */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxDjNSF9jn-TbDzR5o4pBtuLPDFdUwgv1B3RMYTQ5SS-sL3gY4Amd_6uHsUwOK74Oyi/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwanLkiSRRIZp_M_aMA7yUrmjIE7-0m7w46a7840BPPMHn21CzZmhHbp8exgWqdRzM/exec';
 
 /* ===== Camada de API (único ponto que muda ao migrar para o Apps Script) ===== */
 function rawCall(action, data) {
@@ -72,7 +72,7 @@ function rawCall(action, data) {
 
 /* Indicador de carregamento global: aparece em toda chamada ao backend e bloqueia cliques duplicados */
 let pend = 0;
-const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', loginAdmin: 'Entrando…', enviarRelatorio: 'Enviando e-mail…', loginProfessor: 'Entrando…', gerarAcesso: 'Gerando acesso…', updatePonto: 'Salvando ponto…', deletePonto: 'Excluindo ponto…', savePesquisa: 'Salvando pesquisa…', deletePesquisa: 'Excluindo pesquisa…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
+const MSG = { teachers: 'Carregando professores…', teacher: 'Carregando professor…', saveFeedback: 'Salvando feedback…', deleteFeedback: 'Excluindo feedback…', addTeacher: 'Adicionando professor…', loginAdmin: 'Entrando…', enviarRelatorio: 'Enviando e-mail…', enviarCredenciais: 'Enviando credenciais…', esqueciSenha: 'Enviando e-mail…', trocarSenha: 'Salvando nova senha…', loginProfessor: 'Entrando…', gerarAcesso: 'Gerando acesso…', updatePonto: 'Salvando ponto…', deletePonto: 'Excluindo ponto…', savePesquisa: 'Salvando pesquisa…', deletePesquisa: 'Excluindo pesquisa…', updateTeacher: 'Salvando alterações…', deleteTeacher: 'Excluindo professor…' };
 async function call(action, data) {
   pend++; $('#lt').textContent = MSG[action] || 'Carregando…'; $('#ld').classList.add('on');
   try { return await rawCall(action, data); }
@@ -83,7 +83,7 @@ const nomeTurma = t => `#${t.turmaId} - ${t.modulo} / ${t.mesInicio} / ${String(
 const nn = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 const clsOf = o => { const c = nn(o.classificacao); return c.startsWith('grav') ? 'graves' : c.startsWith('med') ? 'medias' : 'leves'; };
 const prevMes = m => { const [y, n] = m.split('-').map(Number), d = new Date(y, n - 2, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
-const topo = h => { $('#topact').innerHTML = h + (sessionStorage.getItem('tk') ? '<button onclick="sair()">Sair</button>' : ''); };
+const topo = h => { $('#topact').innerHTML = h + (sessionStorage.getItem('tk') ? (RO ? '<button onclick="trocarSenhaTela()">Trocar senha</button>' : '') + '<button onclick="sair()">Sair</button>' : ''); };
 /* Churn = cancelamentos do mês ÷ alunos do mês anterior (feedbacks antigos, sem cancelamentos, usam o churn que foi digitado) */
 const fmt1 = n => +n.toFixed(1), vazio = c => c === '' || c === undefined || c === null;
 const pct = v => v == null ? '—' : v + '%', dlt = (a, b, lg) => a == null || b == null ? '' : delta(a, b, lg);
@@ -154,19 +154,37 @@ function editForm(id) {
 }
 const linkProf = c => location.origin + location.pathname + '?p=' + c;
 function acessoSec(t) {
-  return `<section><h2>Acesso do professor</h2><p class="hint">O professor entra pelo link abaixo, com o e-mail cadastrado e a senha. Ele vê só a própria ficha, sem poder editar nada. Salve as alterações do cadastro antes de criar o acesso.</p>
-  ${t.codigo ? `${lab('Link de acesso')}<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="lk" readonly value="${esc(linkProf(t.codigo))}" style="flex:1 1 300px"><button type="button" onclick="copiar('lk')">Copiar link</button></div>` : ''}
-  <p class="hint" style="margin:12px 0">Situação: <b>${t.temAcesso ? 'acesso criado' : 'sem acesso criado'}</b>${t.email ? '' : ' · <span class="dn">cadastre o e-mail do professor para criar o acesso</span>'}</p>
-  <button type="button" onclick="run(()=>gerarAcesso('${t.id}'))">${t.temAcesso ? 'Gerar nova senha' : 'Criar acesso'}</button><div id="acs"></div></section>`;
+  return `<section><h2>Acesso do professor</h2><p class="hint">O professor entra pelo link, com o usuário e a senha. Ele vê só a própria ficha, sem poder editar nada.</p>
+  ${t.temAcesso ? `${lab('Link de acesso')}<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="lk" readonly value="${esc(linkProf(t.codigo))}" style="flex:1 1 300px"><button type="button" onclick="copiar('lk')">Copiar link</button></div><div style="height:14px"></div>` : ''}
+  ${lab('Usuário de acesso', 'Usuário que o professor digita para entrar. Por padrão é o e-mail, mas você pode trocar por outro.')}
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="us" value="${esc(t.usuario || t.email || '')}" style="flex:1 1 300px" autocomplete="off">${t.temAcesso ? `<button type="button" onclick="run(()=>saveUsuario('${t.id}'))">Salvar usuário</button>` : ''}</div>
+  <p class="hint" style="margin:12px 0">Situação: <b>${t.temAcesso ? 'acesso criado' : 'sem acesso criado'}</b></p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" onclick="run(()=>gerarAcesso('${t.id}'))">${t.temAcesso ? 'Gerar nova senha' : 'Criar acesso'}</button>${t.email ? `<button type="button" onclick="run(()=>enviarCredenciais('${t.id}'))">Enviar credenciais por e-mail</button>` : ''}</div>
+  <p class="hint" style="margin:10px 0 0">${t.email ? 'Enviar credenciais gera uma nova senha e manda usuário, senha e link para ' + esc(t.email) + '.' : 'Cadastre o e-mail do professor para poder enviar as credenciais por e-mail.'}</p><div id="acs"></div></section>`;
 }
+const acessoBox = r => `<div class="act"><b>Anote agora: a senha não poderá ser vista de novo.</b><div style="margin-top:8px">Usuário: <b>${esc(r.usuario)}</b></div><div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">Senha: <input id="sn" readonly value="${esc(r.senha)}" style="max-width:200px"><button type="button" onclick="copiar('sn')">Copiar</button></div></div>`;
 async function gerarAcesso(id) {
-  const t = TS.find(x => x.id === id);
+  const t = TS.find(x => x.id === id), usu = $('#us').value.trim();
+  if (!usu) throw new Error('Informe o usuário de acesso');
   if (t.temAcesso && !confirm('Gerar uma nova senha? A senha atual deixa de funcionar.')) return;
-  const r = await call('gerarAcesso', { id }); t.codigo = r.codigo; t.temAcesso = true; editForm(id);
-  $('#acs').innerHTML = `<div class="act"><b>Anote agora: a senha não poderá ser vista de novo.</b><div style="margin-top:8px">E-mail: <b>${esc(t.email)}</b></div><div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap">Senha: <input id="sn" readonly value="${esc(r.senha)}" style="max-width:200px"><button type="button" onclick="copiar('sn')">Copiar</button></div></div>`;
+  const r = await call('gerarAcesso', { id, usuario: usu }); t.codigo = r.codigo; t.temAcesso = true; t.usuario = r.usuario; editForm(id);
+  $('#acs').innerHTML = acessoBox(r);
+}
+async function enviarCredenciais(id) {
+  const t = TS.find(x => x.id === id), usu = $('#us').value.trim();
+  if (!usu) throw new Error('Informe o usuário de acesso');
+  if (!confirm('Gerar uma NOVA senha e enviar as credenciais para ' + t.email + '? A senha atual deixa de funcionar.')) return;
+  const r = await call('enviarCredenciais', { id, usuario: usu, siteUrl: location.origin + location.pathname });
+  t.codigo = r.codigo; t.temAcesso = true; t.usuario = r.usuario; editForm(id); toast('Credenciais enviadas para ' + r.para);
+}
+async function saveUsuario(id) {
+  const t = TS.find(x => x.id === id), usu = $('#us').value.trim();
+  if (!usu) throw new Error('Informe o usuário de acesso');
+  await call('updateTeacher', { id, nome: $('#n').value, email: $('#e').value, usuario: usu });
+  t.nome = $('#n').value; t.email = $('#e').value; t.usuario = usu; toast('Usuário atualizado'); editForm(id);
 }
 function copiar(id) { const e = $('#' + id); e.select(); try { navigator.clipboard.writeText(e.value); } catch (x) { document.execCommand('copy'); } toast('Copiado'); }
-async function saveT(id) { await call('updateTeacher', { id, nome: $('#n').value, email: $('#e').value }); toast('Professor atualizado'); await home(); }
+async function saveT(id) { await call('updateTeacher', { id, nome: $('#n').value, email: $('#e').value, usuario: $('#us').value.trim() }); toast('Professor atualizado'); await home(); }
 async function delT(id) {
   const t = TS.find(x => x.id === id);
   if (!confirm('Excluir ' + t.nome + '?\n\nTodos os feedbacks, turmas e pontos de melhoria deste professor também serão apagados. Essa ação não pode ser desfeita.')) return;
@@ -176,15 +194,24 @@ function addForm() {
   app.innerHTML = `${hero('Adicionar professor', 'Cadastre quem vai receber os feedbacks')}
   <section><h2>Dados do professor</h2>
   <div class="grid"><div>${lab('Nome', 'Escreva exatamente como o nome aparece nas turmas do sistema da escola. É por ele que o sistema liga as turmas ao professor.')}<input id="n" placeholder="Ex.: Gabrielle Siqueira"></div>
-  <div>${lab('E-mail', 'Opcional. Serve só para identificar o professor na lista.')}<input id="e" placeholder="professor@escola.com.br"></div></div>
+  <div>${lab('E-mail', 'Opcional. Usado para enviar o relatório por e-mail e, por padrão, como usuário de acesso.')}<input id="e" placeholder="professor@escola.com.br" oninput="if(!$('#us').dataset.m)$('#us').value=this.value"></div>
+  <div>${lab('Usuário de acesso', 'Usuário que o professor digita para entrar no painel. Por padrão é o e-mail, mas você pode trocar por outro.')}<input id="us" placeholder="igual ao e-mail" oninput="this.dataset.m='1'" autocomplete="off"></div></div>
+  <p class="hint" style="margin:14px 0 0">Ao adicionar, o acesso do professor é criado automaticamente e a senha aparece uma única vez.</p>
   <p style="margin:20px 0 0"><button class="p" onclick="run(addT)">Adicionar professor</button></p></section>`;
   topo('<button onclick="run(home)">← Cancelar</button>');
   $('#n').focus();
 }
 async function addT() {
-  if (!$('#n').value.trim()) throw new Error('Informe o nome do professor');
-  await call('addTeacher', { nome: $('#n').value, email: $('#e').value });
-  toast('Professor adicionado'); await home();
+  const nome = $('#n').value.trim(); if (!nome) throw new Error('Informe o nome do professor');
+  const r = await call('addTeacher', { nome, email: $('#e').value, usuario: $('#us').value.trim() || $('#e').value.trim() });
+  if (r.acesso) acessoCriado(r); else { toast('Professor adicionado. Para criar o acesso, informe um e-mail ou usuário na edição.'); await home(); }
+}
+function acessoCriado(r) {
+  app.innerHTML = `${hero('Professor adicionado', esc(r.nome))}<section><h2>Acesso do professor criado</h2>
+  <p class="hint">Envie o link, o usuário e a senha para o professor. A senha só aparece agora; o link e o usuário podem ser vistos depois, no lápis do professor.</p>
+  ${lab('Link de acesso')}<div style="display:flex;gap:8px;flex-wrap:wrap"><input id="lk" readonly value="${esc(linkProf(r.acesso.codigo))}" style="flex:1 1 300px"><button type="button" onclick="copiar('lk')">Copiar link</button></div>
+  <div style="height:14px"></div>${acessoBox(r.acesso)}<p style="margin:20px 0 0"><button class="p" onclick="run(home)">Concluir</button></p></section>`;
+  topo('');
 }
 
 /* ===== Visão da escola: soma de todos os professores, mês a mês ===== */
@@ -317,7 +344,7 @@ function ocSchool() {
   <div class="card"><h3>Detalhes das ocorrências da escola</h3>${ocDetail('ocs', oc, true)}</div>`;
 }
 /* ===== Relatório por e-mail ===== */
-function relHtml(F, msg) {
+function relHtml(F, msg, incPq) {
   const P = D.feedbacks.find(x => x.mes === prevMes(F.mes)), td = 'padding:9px 10px;border-bottom:1px solid #dfe2ea';
   const sec = n => `<h2 style="font-size:16px;color:#2b2a74;margin:26px 0 8px;font-family:Arial,Helvetica,sans-serif">${n}</h2>`;
   const tb = r => `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;font-size:14px;color:#3a3b4d">${r}</table>`;
@@ -326,11 +353,10 @@ function relHtml(F, msg) {
   const li = a => a.length ? `<ul style="margin:6px 0 0;padding-left:20px;font-size:14px;color:#3a3b4d">${a.map(x => `<li style="margin:3px 0">${esc(x)}</li>`).join('')}</ul>` : '';
   let b = sec('Indicadores de ' + MES(F.mes)) + tb(tr('Churn', pct(F.ch), P ? sa(F.ch, P.ch, 1) : '') + tr('Turmas', F.turmas, P ? sa(+F.turmas, +P.turmas) : '') + tr('Alunos', F.alunos, P ? sa(+F.alunos, +P.alunos) : ''));
   if (!vazio(F.cancelamentos) && P) b += `<p style="font-size:12px;color:#6b6d80;margin:6px 0 0">Churn = ${F.cancelamentos} cancelamentos ÷ ${P.alunos} alunos em ${MES(P.mes)}. As setas comparam com ${MES(P.mes)}.</p>`;
-  const ps = D.pesquisas || [];
-  if (ps.length) { const L = ps[ps.length - 1], O = ps[ps.length - 2]; b += sec('Pesquisa de satisfação · ' + pLab(L)) + tb(PQ.map(([k, n]) => tr(n, pVal(L, k), O ? sa(+L[k], +O[k], 0, 2) : '')).join('')) + (O ? `<p style="font-size:12px;color:#6b6d80;margin:6px 0 0">As setas comparam com a pesquisa de ${pLab(O)}.</p>` : ''); }
+  if (incPq && (D.pesquisas || []).length) { const ps = D.pesquisas, L = ps[ps.length - 1], O = ps[ps.length - 2]; b += sec('Pesquisa de satisfação · ' + pLab(L)) + tb(PQ.map(([k, n]) => tr(n, pVal(L, k), O ? sa(+L[k], +O[k], 0, 2) : '')).join('')) + (O ? `<p style="font-size:12px;color:#6b6d80;margin:6px 0 0">As setas comparam com a pesquisa de ${pLab(O)}.</p>` : ''); }
   if (!D.ocErro) { const oc = (D.ocorrencias || []).filter(o => o.mes === F.mes); b += sec('Ocorrências em ' + MES(F.mes)) + tb(tr('Total', oc.length) + tr('Graves', cnt(oc, 'graves')) + tr('Médias', cnt(oc, 'medias')) + tr('Leves', cnt(oc, 'leves'))); }
   const pend = D.pontos.filter(p => p.status === 'pendente').map(p => p.texto), mel = D.pontos.filter(p => p.status === 'melhorado' && p.mesResolvido === F.mes).map(p => p.texto);
-  if (pend.length || mel.length) b += sec('Pontos de melhoria') + (mel.length ? `<div style="font-size:14px;color:#1d7a45;font-weight:bold">Melhorados em ${MES(F.mes)}</div>${li(mel)}` : '') + (pend.length ? `<div style="font-size:14px;color:#2b2a74;font-weight:bold;margin-top:10px">A melhorar</div>${li(pend)}` : '');
+  if (pend.length || mel.length) b += sec('Pontos de melhoria') + (pend.length ? `<div style="font-size:14px;color:#2b2a74;font-weight:bold">A melhorar</div>${li(pend)}` : '') + (mel.length ? `<div style="font-size:14px;color:#1d7a45;font-weight:bold;margin-top:10px">Melhorados em ${MES(F.mes)}</div>${li(mel)}` : '');
   if (F.obs) b += sec('Observações') + `<p style="font-size:14px;color:#3a3b4d;margin:0">${esc(F.obs).replace(/\n/g, '<br>')}</p>`;
   if (D.teacher.codigo && D.teacher.temAcesso) b += `<p style="margin:28px 0 0"><a href="${esc(linkProf(D.teacher.codigo))}" style="background:#e8173f;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 24px;border-radius:8px;display:inline-block;font-size:14px">Ver minha ficha completa</a></p>`;
   return `<div style="background:#f7f8fb;padding:24px 12px;font-family:Arial,Helvetica,sans-serif"><div style="max-width:640px;margin:0 auto;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #dfe2ea">
@@ -346,6 +372,7 @@ function relatorioForm() {
   <div>${lab('Mês do relatório', 'Mês do feedback usado como base. As setas comparam sempre com o mês anterior.')}<select id="rl_mes" onchange="rlPrev()">${[...D.feedbacks].reverse().map(f => `<option value="${f.mes}">${MES(f.mes)}</option>`).join('')}</select></div></div>
   <div style="height:14px"></div>${lab('Assunto')}<input id="rl_as">
   <div style="height:14px"></div>${lab('Mensagem (opcional)', 'Texto seu que aparece no começo do e-mail, antes dos dados.')}<textarea id="rl_msg" rows="3" oninput="rlPrev(false)" placeholder="Ex.: Olá! Segue o seu relatório do mês."></textarea>
+  <div class="act"><label class="ck"><input type="checkbox" id="rl_pq" ${D.pesquisas.length ? '' : 'disabled'} onchange="rlPrev(false)"><span>Incluir a pesquisa de satisfação mais recente no e-mail ${D.pesquisas.length ? '' : '<span class="mu">(este professor ainda não tem pesquisa)</span>'}</span></label></div>
   ${ok ? '' : '<p class="dn" style="margin:12px 0 0">Este professor não tem um e-mail válido cadastrado. Cadastre antes de enviar.</p>'}</section>
   <section><h2>2. Prévia</h2><iframe id="rl_pv" title="Prévia do e-mail" style="width:100%;height:560px;border:1px solid var(--linha);border-radius:12px;background:#fff"></iframe>
   <p style="margin:20px 0 0"><button class="p" ${ok ? '' : 'disabled'} onclick="run(enviarRel)">Enviar e-mail</button></p></section>`;
@@ -355,12 +382,12 @@ function relatorioForm() {
 function rlPrev(reset) {
   const F = D.feedbacks.find(x => x.mes === $('#rl_mes').value);
   if (reset !== false) $('#rl_as').value = 'Seu relatório de acompanhamento · ' + MES(F.mes);
-  $('#rl_pv').srcdoc = relHtml(F, $('#rl_msg').value);
+  $('#rl_pv').srcdoc = relHtml(F, $('#rl_msg').value, $('#rl_pq').checked);
 }
 async function enviarRel() {
   const F = D.feedbacks.find(x => x.mes === $('#rl_mes').value), t = D.teacher;
   if (!confirm('Enviar o relatório de ' + MES(F.mes) + ' para ' + t.email + '?')) return;
-  await call('enviarRelatorio', { id: t.id, mes: F.mes, assunto: $('#rl_as').value, html: relHtml(F, $('#rl_msg').value) });
+  await call('enviarRelatorio', { id: t.id, mes: F.mes, assunto: $('#rl_as').value, html: relHtml(F, $('#rl_msg').value, $('#rl_pq').checked) });
   toast('E-mail enviado para ' + t.email); await teacher(t.id);
 }
 /* ===== Pontos de melhoria: editar / excluir ===== */
@@ -511,19 +538,48 @@ function sair(msg) {
   if (sessionStorage.getItem('tk') && typeof msg !== 'string') rawCall('logout').catch(() => {});
   sessionStorage.clear(); RO = false; loginTela(typeof msg === 'string' ? msg : '');
 }
-function loginTela(msg) {
+function loginTela(msg, ok) {
   topo('');
-  app.innerHTML = `<div style="max-width:420px;margin:0 auto">${hero(PARAM_P ? 'Acesso do professor' : 'Acesso administrativo', PARAM_P ? 'Entre com o e-mail cadastrado e a senha que você recebeu.' : 'Entre para acessar o painel de feedbacks.')}
-  <section>${msg ? `<p class="dn" style="margin:0 0 12px">${esc(msg)}</p>` : ''}
-  ${lab(PARAM_P ? 'E-mail' : 'Usuário')}<input id="lu" autocomplete="username" ${PARAM_P ? 'type="email"' : ''}>
+  app.innerHTML = `<div style="max-width:420px;margin:0 auto">${hero(PARAM_P ? 'Acesso do professor' : 'Acesso administrativo', PARAM_P ? 'Entre com o usuário e a senha que você recebeu.' : 'Entre para acessar o painel de feedbacks.')}
+  <section>${msg ? `<p class="${ok ? 'up' : 'dn'}" style="margin:0 0 12px">${esc(msg)}</p>` : ''}
+  ${lab('Usuário')}<input id="lu" autocomplete="username">
   <div style="height:14px"></div>${lab('Senha')}<input id="ls" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')run(entrar)">
-  <p style="margin:20px 0 0"><button class="p" onclick="run(entrar)">Entrar</button></p></section></div>`;
+  <p style="margin:20px 0 0"><button class="p" onclick="run(entrar)">Entrar</button></p>
+  ${PARAM_P ? '<p style="margin:14px 0 0"><button type="button" style="border:none;background:none;text-decoration:underline;padding:4px 0" onclick="esqueciTela()">Esqueci minha senha</button></p>' : ''}</section></div>`;
   $('#lu').focus(); $('#lu').onkeydown = e => { if (e.key === 'Enter') $('#ls').focus(); };
+}
+function esqueciTela() {
+  app.innerHTML = `<div style="max-width:420px;margin:0 auto">${hero('Esqueci minha senha', 'Informe o usuário ou o e-mail do seu cadastro. Enviaremos o usuário e uma nova senha para o e-mail cadastrado.')}
+  <section>${lab('Usuário ou e-mail')}<input id="ei" autocomplete="username" onkeydown="if(event.key==='Enter')run(esqueciEnviar)">
+  <p style="margin:20px 0 0;display:flex;gap:10px;flex-wrap:wrap"><button class="p" onclick="run(esqueciEnviar)">Enviar nova senha</button><button onclick="loginTela()">Voltar ao login</button></p></section></div>`;
+  $('#ei').focus();
+}
+async function esqueciEnviar() {
+  const v = $('#ei').value.trim(); if (!v) throw new Error('Informe o usuário ou o e-mail');
+  const r = await call('esqueciSenha', { codigo: PARAM_P, ident: v });
+  loginTela(r.msg, true); // volta ao login com o aviso em verde
+}
+/* Troca de senha do professor (janela) */
+function trocarSenhaTela() {
+  $('#mdc').innerHTML = `<h3 id="mdt" style="margin:0 44px 12px 0">Trocar senha</h3>
+  ${lab('Senha atual')}<input id="ts_a" type="password" autocomplete="current-password">
+  <div style="height:12px"></div>${lab('Nova senha', 'Mínimo de 8 caracteres.')}<input id="ts_n" type="password" autocomplete="new-password">
+  <div style="height:12px"></div>${lab('Repita a nova senha')}<input id="ts_c" type="password" autocomplete="new-password" onkeydown="if(event.key==='Enter')run(salvarSenha)">
+  <p style="margin:20px 0 0;display:flex;gap:10px;flex-wrap:wrap"><button class="p" onclick="run(salvarSenha)">Salvar nova senha</button><button onclick="ocFechar()">Cancelar</button></p>`;
+  $('#md').hidden = false; $('#ts_a').focus();
+}
+async function salvarSenha() {
+  const a = $('#ts_a').value, n = $('#ts_n').value, c = $('#ts_c').value;
+  if (!a || !n) throw new Error('Preencha a senha atual e a nova senha');
+  if (n.length < 8) throw new Error('A nova senha precisa ter pelo menos 8 caracteres');
+  if (n !== c) throw new Error('A confirmação não confere com a nova senha');
+  await call('trocarSenha', { atual: a, nova: n });
+  ocFechar(); toast('Senha alterada com sucesso');
 }
 async function entrar() {
   const u = $('#lu').value.trim(), s = $('#ls').value;
-  if (!u || !s) throw new Error('Preencha ' + (PARAM_P ? 'o e-mail' : 'o usuário') + ' e a senha');
-  const r = PARAM_P ? await call('loginProfessor', { codigo: PARAM_P, email: u, senha: s }) : await call('loginAdmin', { usuario: u, senha: s });
+  if (!u || !s) throw new Error('Preencha o usuário e a senha');
+  const r = PARAM_P ? await call('loginProfessor', { codigo: PARAM_P, usuario: u, senha: s }) : await call('loginAdmin', { usuario: u, senha: s, siteUrl: location.origin + location.pathname });
   sessionStorage.setItem('tk', r.token); sessionStorage.setItem('role', r.role); sessionStorage.setItem('tid', r.tid || '');
   await entrarApp();
 }
